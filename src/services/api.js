@@ -1,0 +1,204 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+
+class ApiService {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = localStorage.getItem('accessToken');
+    
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    if (config.body && typeof config.body === 'object') {
+      config.body = JSON.stringify(config.body);
+    }
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle token expiration
+        if (response.status === 401 && data.code === 'TOKEN_EXPIRED') {
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            try {
+              const refreshResponse = await this.refreshToken(refreshToken);
+              const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.tokens;
+              
+              localStorage.setItem('accessToken', accessToken);
+              localStorage.setItem('refreshToken', newRefreshToken);
+              
+              // Retry original request with new token
+              config.headers.Authorization = `Bearer ${accessToken}`;
+              const retryResponse = await fetch(url, config);
+              const retryData = await retryResponse.json();
+              
+              if (!retryResponse.ok) {
+                throw new Error(retryData.message || 'API request failed');
+              }
+              
+              return retryData;
+            } catch (refreshError) {
+              // Refresh failed, redirect to login
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              window.dispatchEvent(new CustomEvent('authTokenExpired'));
+              throw new Error('Session expired. Please log in again.');
+            }
+          }
+        }
+        
+        // Handle validation errors
+        if (response.status === 400 && data.errors && Array.isArray(data.errors)) {
+          const errorMessages = data.errors.map(error => error.msg).join(', ');
+          throw new Error(errorMessages);
+        }
+        
+        throw new Error(data.message || 'API request failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  }
+
+  // Authentication endpoints
+  async signup(userData) {
+    return this.request('/auth/signup', {
+      method: 'POST',
+      body: userData,
+    });
+  }
+
+  async login(credentials) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: credentials,
+    });
+  }
+
+  async googleAuth(credential) {
+    return this.request('/auth/google', {
+      method: 'POST',
+      body: { credential },
+    });
+  }
+
+  async forgotPassword(email) {
+    return this.request('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+    });
+  }
+
+  async resetPassword(token, password) {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: { token, password },
+    });
+  }
+
+  async refreshToken(refreshToken) {
+    // Don't use the main request method to avoid infinite loops
+    const response = await fetch(`${this.baseURL}/auth/refresh-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Token refresh failed');
+    }
+
+    return data;
+  }
+
+  async logout() {
+    try {
+      await this.request('/auth/logout', {
+        method: 'POST',
+      });
+    } catch (error) {
+      // Even if logout fails on server, clear local tokens
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    }
+  }
+
+  async verifyEmail(token) {
+    return this.request(`/auth/verify-email/${token}`, {
+      method: 'GET',
+    });
+  }
+
+  // User endpoints
+  async getProfile() {
+    return this.request('/user/profile');
+  }
+
+  async updateProfile(profileData) {
+    return this.request('/user/profile', {
+      method: 'PUT',
+      body: profileData,
+    });
+  }
+
+  async updatePreferences(preferences) {
+    return this.request('/user/preferences', {
+      method: 'PUT',
+      body: preferences,
+    });
+  }
+
+  async changePassword(passwordData) {
+    return this.request('/user/change-password', {
+      method: 'PUT',
+      body: passwordData,
+    });
+  }
+
+  async deleteAccount(confirmationData) {
+    return this.request('/user/account', {
+      method: 'DELETE',
+      body: confirmationData,
+    });
+  }
+
+  async getUserStats() {
+    return this.request('/user/stats');
+  }
+
+  // Utility methods
+  isAuthenticated() {
+    return !!localStorage.getItem('accessToken');
+  }
+
+  getToken() {
+    return localStorage.getItem('accessToken');
+  }
+
+  clearTokens() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
+}
+
+export default new ApiService();
