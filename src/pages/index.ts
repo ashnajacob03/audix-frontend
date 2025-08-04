@@ -6,3 +6,4 @@ export { default as ResetPassword } from "./ResetPassword";
 export { default as Premium } from "./Premium";
 export { default as Messages } from "./Messages";
 export { default as AdminDashboard } from "./AdminDashboard";
+export { default as Settings } from "./Settings";

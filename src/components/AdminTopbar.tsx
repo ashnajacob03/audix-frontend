@@ -13,6 +13,7 @@ import {
 import { Link } from "react-router-dom";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
+import UserAvatar from "./UserAvatar";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./ui/button";
 import {
@@ -93,9 +94,7 @@ const AdminTopbar = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-zinc-800/50 transition-colors">
-              <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-orange-600 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
+              <UserAvatar size="md" showOnlineStatus={true} className="ring-red-500/20 hover:ring-red-500/40" />
               <ChevronDown className="w-4 h-4 text-zinc-400" />
             </button>
           </DropdownMenuTrigger>
@@ -125,10 +124,10 @@ const AdminTopbar = () => {
             </DropdownMenuItem>
             
             <DropdownMenuItem asChild>
-              <button className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer w-full text-left">
+              <Link to="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
                 <Settings className="w-4 h-4" />
                 Admin Settings
-              </button>
+              </Link>
             </DropdownMenuItem>
             
             <DropdownMenuSeparator className="bg-zinc-700" />

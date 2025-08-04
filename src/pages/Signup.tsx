@@ -15,8 +15,7 @@ const Signup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [code, setCode] = useState('');
+
   const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,16 +94,16 @@ const Signup = () => {
         throw new Error(data.message || 'Signup failed');
       }
 
-      // Then create Clerk user
-      const result = await signUp?.create({
-        emailAddress: formData.email.trim(),
-        password: formData.password,
+      // Success! User created in backend, now redirect to OTP verification
+      console.log('User created successfully in backend');
+      
+      // Redirect to OTP verification page with user data
+      navigate('/verify-otp', { 
+        state: { 
+          userData: data.data.user 
+        },
+        replace: true 
       });
-
-      if (result) {
-        await signUp?.prepareEmailAddressVerification({ strategy: 'email_code' });
-        setPendingVerification(true);
-      }
     } catch (err: any) {
       console.error('Signup error:', err);
       if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
@@ -117,41 +116,7 @@ const Signup = () => {
     }
   };
 
-  const handleVerification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
 
-    if (!code.trim()) {
-      setError('Please enter the verification code');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const completeSignUp = await signUp?.attemptEmailAddressVerification({
-        code: code.trim(),
-      });
-
-      if (completeSignUp?.status === 'complete') {
-        await setActive({ session: completeSignUp.createdSessionId });
-        console.log('Clerk session set after verification, navigating to home...');
-        // Force navigation to home
-        window.location.href = '/';
-      } else {
-        setError('Verification incomplete. Please try again.');
-      }
-    } catch (err: any) {
-      console.error('Verification error:', err);
-      if (err.errors && err.errors.length > 0) {
-        setError(err.errors[0].message);
-      } else {
-        setError('Verification failed. Please check your code.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleGoogleSignUp = async () => {
     try {
@@ -170,54 +135,7 @@ const Signup = () => {
     }
   };
 
-  if (pendingVerification) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#191414] via-[#1db954]/10 to-[#191414] flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-[#121212] rounded-2xl p-8 shadow-2xl border border-[#282828] text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Check Your Email</h1>
-            <p className="text-gray-400 mb-6">
-              We've sent a verification code to {formData.email}
-            </p>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                {error}
-              </div>
-            )}
-            
-            <form onSubmit={handleVerification} className="space-y-4">
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter verification code"
-                className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] text-center"
-                required
-                maxLength={6}
-              />
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-[#1db954] hover:bg-[#1ed760] disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200"
-              >
-                {isLoading ? 'Verifying...' : 'Verify Email'}
-              </button>
-            </form>
-            
-            <button
-              onClick={() => setPendingVerification(false)}
-              className="mt-4 text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              ← Back to signup
-            </button>
-          </div>
-        </div>
-        {/* CAPTCHA element for Clerk */}
-        <div id="clerk-captcha" style={{ display: 'none' }}></div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#191414] via-[#1db954]/10 to-[#191414] flex items-center justify-center p-4">

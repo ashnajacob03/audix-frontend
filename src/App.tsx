@@ -1,8 +1,10 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { useCustomAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import VerifyOTP from './pages/VerifyOTP';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Premium from './pages/Premium';
@@ -12,6 +14,7 @@ import SearchPage from './pages/SearchPage';
 import Messages from './pages/Messages';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
@@ -31,12 +34,13 @@ const Loading = () => (
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useCustomAuth();
   const { isSignedIn, isLoaded } = useAuth();
   
-  if (!isLoaded) return <Loading />;
+  if (isLoading || !isLoaded) return <Loading />;
   
-  if (!isSignedIn) {
-    console.log('User not signed in, redirecting to login...');
+  if (!isAuthenticated && !isSignedIn) {
+    console.log('User not authenticated, redirecting to login...');
     return <Navigate to="/login" replace />;
   }
   
@@ -45,12 +49,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Public Route Component (redirect if already signed in)
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useCustomAuth();
   const { isSignedIn, isLoaded } = useAuth();
   
-  if (!isLoaded) return <Loading />;
+  if (isLoading || !isLoaded) return <Loading />;
   
-  if (isSignedIn) {
-    console.log('User already signed in, redirecting to home...');
+  if (isAuthenticated || isSignedIn) {
+    console.log('User already authenticated, redirecting to home...');
     return <Navigate to="/" replace />;
   }
   
@@ -79,6 +84,10 @@ function App() {
           }
         />
         <Route
+          path="/verify-otp"
+          element={<VerifyOTP />}
+        />
+        <Route
           path="/forgot-password"
           element={
             <PublicRoute>
@@ -88,11 +97,7 @@ function App() {
         />
         <Route
           path="/reset-password"
-          element={
-            <PublicRoute>
-              <ResetPassword />
-            </PublicRoute>
-          }
+          element={<ResetPassword />}
         />
         <Route path="/auth/google-callback" element={<GoogleCallback />} />
 
@@ -122,21 +127,29 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <ProtectedRoute>
                 <Profile />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/stats" 
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
             element={
               <ProtectedRoute>
                 <Stats />
               </ProtectedRoute>
-            } 
+            }
           />
           <Route 
             path="/liked" 

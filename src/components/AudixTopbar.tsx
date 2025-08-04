@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
+import { useCustomAuth } from "@/contexts/AuthContext";
+import UserAvatar from "./UserAvatar";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./ui/button";
@@ -26,6 +28,7 @@ const AudixTopbar = () => {
   const { user } = useUser();
   const { userProfile } = useUserProfile();
   const { logout } = useLogout();
+  const { isAuthenticated, user: customUser, logout: customLogout } = useCustomAuth();
 
   return (
     <div
@@ -53,7 +56,8 @@ const AudixTopbar = () => {
 
 
 
-        <SignedOut>
+        {/* Show login button when user is not authenticated (neither custom nor Clerk) */}
+        {!isAuthenticated && !isSignedIn && (
           <Link
             to="/login"
             className={cn(
@@ -63,10 +67,10 @@ const AudixTopbar = () => {
           >
             Login
           </Link>
-        </SignedOut>
+        )}
 
-        {/* Premium upgrade button - Only show when user is logged in */}
-        {isSignedIn && (
+        {/* Premium upgrade button - Only show when user is logged in (either custom or Clerk) */}
+        {(isAuthenticated || isSignedIn) && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -88,23 +92,23 @@ const AudixTopbar = () => {
           </TooltipProvider>
         )}
 
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
+        {/* User dropdown - Only show when user is logged in (either custom or Clerk) */}
+        {(isAuthenticated || isSignedIn) && (
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 p-2 rounded-full hover:bg-zinc-800/50 transition-colors">
-                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
-                </div>
+                <UserAvatar size="md" showOnlineStatus={true} />
                 <ChevronDown className="w-4 h-4 text-zinc-400" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-zinc-700">
               <div className="px-3 py-2 border-b border-zinc-700">
                 <p className="text-sm font-medium text-white">
-                  {userProfile?.firstName || user?.firstName || 'User'}
+                  {customUser?.firstName || userProfile?.firstName || user?.firstName || 'User'}
                 </p>
                 <p className="text-xs text-zinc-400">
-                  {userProfile?.email || user?.emailAddresses[0]?.emailAddress}
+                  {customUser?.email || userProfile?.email || user?.emailAddresses[0]?.emailAddress}
                 </p>
               </div>
               
@@ -139,15 +143,22 @@ const AudixTopbar = () => {
               <DropdownMenuSeparator className="bg-zinc-700" />
               
               <DropdownMenuItem asChild>
-                <button className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer w-full text-left">
+                <Link to="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
                   <Settings className="w-4 h-4" />
                   Settings
-                </button>
+                </Link>
               </DropdownMenuItem>
               
               <DropdownMenuItem asChild>
                 <button
-                  onClick={logout}
+                  onClick={() => {
+                    // Use custom logout for MongoDB users, fallback to Clerk logout
+                    if (customUser) {
+                      customLogout();
+                    } else {
+                      logout();
+                    }
+                  }}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer w-full text-left"
                 >
                   <LogOut className="w-4 h-4" />
@@ -157,6 +168,7 @@ const AudixTopbar = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        )}
       </div>
     </div>
   );

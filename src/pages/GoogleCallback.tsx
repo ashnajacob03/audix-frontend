@@ -1,10 +1,12 @@
 import  { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
+import { useCustomAuth } from '../contexts/AuthContext';
 
 const GoogleCallback = () => {
   const { user, isLoaded } = useUser();
   const navigate = useNavigate();
+  const { login } = useCustomAuth();
 
   useEffect(() => {
     const syncUserWithMongoDB = async () => {
@@ -35,9 +37,8 @@ const GoogleCallback = () => {
             const data = await response.json();
             
             if (response.ok) {
-              // Store MongoDB user data in localStorage for your app
-              localStorage.setItem('mongoUser', JSON.stringify(data.data.user));
-              localStorage.setItem('accessToken', data.data.tokens.accessToken);
+              // Store user data using custom auth context
+              login(data.data.user, data.data.tokens);
 
               // Check if user is admin and redirect accordingly
               const userEmail = user.primaryEmailAddress?.emailAddress;
@@ -46,9 +47,9 @@ const GoogleCallback = () => {
 
               if (isAdmin) {
                 console.log('Admin user detected in Google callback, redirecting to admin dashboard');
-                window.location.href = '/admin';
+                navigate('/admin', { replace: true });
               } else {
-                window.location.href = '/';
+                navigate('/', { replace: true });
               }
             } else {
               console.error('Failed to sync with MongoDB:', data.message);
@@ -58,9 +59,9 @@ const GoogleCallback = () => {
 
               if (userEmail === ADMIN_EMAIL) {
                 console.log('Admin user detected (fallback), redirecting to admin dashboard');
-                window.location.href = '/admin';
+                navigate('/admin', { replace: true });
               } else {
-                window.location.href = '/'; // Still proceed to home
+                navigate('/', { replace: true }); // Still proceed to home
               }
             }
           }
@@ -72,9 +73,9 @@ const GoogleCallback = () => {
 
           if (userEmail === ADMIN_EMAIL) {
             console.log('Admin user detected (error fallback), redirecting to admin dashboard');
-            window.location.href = '/admin';
+            navigate('/admin', { replace: true });
           } else {
-            window.location.href = '/'; // Still proceed to home
+            navigate('/', { replace: true }); // Still proceed to home
           }
         }
       }

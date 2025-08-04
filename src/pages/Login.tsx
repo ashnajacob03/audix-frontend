@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSignIn } from '@clerk/clerk-react';
+import { useCustomAuth } from '../contexts/AuthContext';
 
 const Login = () => {
   const { signIn, setActive } = useSignIn();
+  const { login } = useCustomAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,31 +36,32 @@ const Login = () => {
       });
       const data = await response.json();
       if (!response.ok) {
+        // Check if user needs email verification
+        if (data.requiresVerification) {
+          navigate('/verify-otp', { 
+            state: { 
+              userData: { email: data.email } 
+            },
+            replace: true 
+          });
+          return;
+        }
         throw new Error(data.message || 'Login failed');
       }
-      // Store MongoDB user data
-      localStorage.setItem('mongoUser', JSON.stringify(data.data.user));
-      localStorage.setItem('accessToken', data.data.tokens.accessToken);
-      // Then authenticate with Clerk
-      const result = await signIn?.create({
-        identifier: email.trim(),
-        password,
-      });
-      if (result?.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        console.log('Clerk session set, checking admin status...');
+      // Use custom auth context to store user data
+      login(data.data.user, data.data.tokens);
+      
+      console.log('MongoDB authentication successful');
 
-        // Check if user is admin and redirect accordingly
-        const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
-        if (email === ADMIN_EMAIL) {
-          console.log('Admin user detected in login, redirecting to admin dashboard');
-          window.location.href = '/admin';
-        } else {
-          // Force navigation to home for regular users
-          window.location.href = '/';
-        }
+      // Check if user is admin and redirect accordingly
+      const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
+      if (email === ADMIN_EMAIL) {
+        console.log('Admin user detected in login, redirecting to admin dashboard');
+        navigate('/admin', { replace: true });
       } else {
-        setError('Login incomplete. Please try again.');
+        // For regular users, redirect to home
+        console.log('Regular user login successful, redirecting to home');
+        navigate('/', { replace: true });
       }
     } catch (err: any) {
       console.error('Login error:', err);
