@@ -2,14 +2,12 @@ import PlaylistSkeleton from "@/components/skeletons/PlaylistSkeleton";
 import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@clerk/clerk-react";
 import { useCustomAuth } from "@/contexts/AuthContext";
 import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Music } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const LeftSidebar = () => {
-	const { isSignedIn } = useAuth();
 	const { isAuthenticated } = useCustomAuth();
 	const [isLoading] = useState(false);
 
@@ -90,7 +88,7 @@ const LeftSidebar = () => {
 						<span className='hidden md:inline'>Search</span>
 					</Link>
 
-					{(isAuthenticated || isSignedIn) && (
+					{isAuthenticated && (
 						<>
 							<Link
 								to={"/dashboard"}

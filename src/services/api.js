@@ -186,6 +186,23 @@ class ApiService {
     return this.request('/user/stats');
   }
 
+  // Social endpoints
+  async getAllUsers() {
+    return this.request('/user/all');
+  }
+
+  async followUser(userId) {
+    return this.request(`/user/follow/${userId}`, {
+      method: 'POST',
+    });
+  }
+
+  async unfollowUser(userId) {
+    return this.request(`/user/follow/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Utility methods
   isAuthenticated() {
     return !!localStorage.getItem('accessToken');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '../contexts/AuthContext';
 
 interface UserProfile {
   id: string;
@@ -30,13 +30,13 @@ interface UseUserProfileReturn {
 }
 
 export const useUserProfile = (): UseUserProfileReturn => {
-  const { user: clerkUser, isLoaded } = useUser();
+  const { user: customUser, isAuthenticated } = useCustomAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUserProfile = async () => {
-    if (!clerkUser || !isLoaded) {
+    if (!customUser || !isAuthenticated) {
       setIsLoading(false);
       return;
     }
@@ -47,28 +47,22 @@ export const useUserProfile = (): UseUserProfileReturn => {
 
       // Get access token from localStorage (from your login flow)
       const accessToken = localStorage.getItem('accessToken');
-      
+
       if (!accessToken) {
-        // If no MongoDB token, use Clerk data as fallback
-        const clerkProfile: UserProfile = {
-          id: clerkUser.id,
-          firstName: clerkUser.firstName || '',
-          lastName: clerkUser.lastName || '',
-          fullName: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
-          email: clerkUser.emailAddresses[0]?.emailAddress || '',
-          profilePicture: clerkUser.imageUrl,
-          isEmailVerified: clerkUser.emailAddresses[0]?.verification?.status === 'verified',
-          accountType: 'free',
-          isAdmin: false,
-          createdAt: clerkUser.createdAt?.toISOString() || new Date().toISOString(),
-          clerkData: {
-            firstName: clerkUser.firstName || undefined,
-            lastName: clerkUser.lastName || undefined,
-            fullName: clerkUser.fullName || undefined,
-            email: clerkUser.emailAddresses[0]?.emailAddress || undefined,
-          }
+        // If no MongoDB token, use custom user data as fallback
+        const customProfile: UserProfile = {
+          id: customUser.id,
+          firstName: customUser.firstName || '',
+          lastName: customUser.lastName || '',
+          fullName: customUser.name || `${customUser.firstName || ''} ${customUser.lastName || ''}`.trim(),
+          email: customUser.email || '',
+          profilePicture: customUser.picture,
+          isEmailVerified: customUser.isEmailVerified || false,
+          accountType: customUser.accountType || 'free',
+          isAdmin: customUser.isAdmin || false,
+          createdAt: new Date().toISOString(),
         };
-        setUserProfile(clerkProfile);
+        setUserProfile(customProfile);
         setIsLoading(false);
         return;
       }
@@ -146,7 +140,7 @@ export const useUserProfile = (): UseUserProfileReturn => {
 
   useEffect(() => {
     fetchUserProfile();
-  }, [clerkUser, isLoaded]);
+  }, [customUser, isAuthenticated]);
 
   const refetch = () => {
     fetchUserProfile();

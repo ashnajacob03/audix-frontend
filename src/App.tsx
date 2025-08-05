@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '@clerk/clerk-react';
 import { useCustomAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -19,7 +18,7 @@ import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
 import NotFound from './pages/NotFound';
-import GoogleCallback from './pages/GoogleCallback';
+
 import MainLayout from './layout/MainLayout';
 import AdminLayout from './layout/AdminLayout';
 import AdminRedirectRoute from './components/AdminRedirectRoute';
@@ -35,30 +34,28 @@ const Loading = () => (
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useCustomAuth();
-  const { isSignedIn, isLoaded } = useAuth();
-  
-  if (isLoading || !isLoaded) return <Loading />;
-  
-  if (!isAuthenticated && !isSignedIn) {
+
+  if (isLoading) return <Loading />;
+
+  if (!isAuthenticated) {
     console.log('User not authenticated, redirecting to login...');
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
 // Public Route Component (redirect if already signed in)
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useCustomAuth();
-  const { isSignedIn, isLoaded } = useAuth();
-  
-  if (isLoading || !isLoaded) return <Loading />;
-  
-  if (isAuthenticated || isSignedIn) {
+
+  if (isLoading) return <Loading />;
+
+  if (isAuthenticated) {
     console.log('User already authenticated, redirecting to home...');
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -99,7 +96,7 @@ function App() {
           path="/reset-password"
           element={<ResetPassword />}
         />
-        <Route path="/auth/google-callback" element={<GoogleCallback />} />
+
 
         {/* Main app routes with Audix layout */}
         <Route element={<MainLayout />}>

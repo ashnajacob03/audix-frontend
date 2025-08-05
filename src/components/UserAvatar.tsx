@@ -1,5 +1,4 @@
 import { User } from 'lucide-react';
-import { useUser } from '@clerk/clerk-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCustomAuth } from '@/contexts/AuthContext';
 
@@ -10,13 +9,12 @@ interface UserAvatarProps {
   fallbackIcon?: boolean;
 }
 
-const UserAvatar: React.FC<UserAvatarProps> = ({ 
-  size = 'md', 
-  className = '', 
+const UserAvatar: React.FC<UserAvatarProps> = ({
+  size = 'md',
+  className = '',
   showOnlineStatus = false,
-  fallbackIcon = true 
+  fallbackIcon = true
 }) => {
-  const { user } = useUser();
   const { userProfile } = useUserProfile();
   const { user: customUser } = useCustomAuth();
 
@@ -31,25 +29,22 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     
     // 3. Check userProfile from MongoDB
     if (userProfile?.profilePicture) return userProfile.profilePicture;
-    
-    // 4. Check Clerk user image
-    if (user?.imageUrl) return user.imageUrl;
-    
-    // 5. No image available
+
+    // 4. No image available
     return null;
   };
 
   // Get user initials for fallback
   const getUserInitials = () => {
-    const firstName = customUser?.firstName || userProfile?.firstName || user?.firstName || '';
-    const lastName = customUser?.lastName || userProfile?.lastName || user?.lastName || '';
-    
+    const firstName = customUser?.firstName || userProfile?.firstName || '';
+    const lastName = customUser?.lastName || userProfile?.lastName || '';
+
     if (firstName && lastName) {
       return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
     } else if (firstName) {
       return firstName.charAt(0).toUpperCase();
-    } else if (user?.emailAddresses?.[0]?.emailAddress) {
-      return user.emailAddresses[0].emailAddress.charAt(0).toUpperCase();
+    } else if (customUser?.email) {
+      return customUser.email.charAt(0).toUpperCase();
     }
     return 'U';
   };

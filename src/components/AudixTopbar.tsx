@@ -1,4 +1,4 @@
-import { SignedOut, UserButton, useAuth, useUser } from "@clerk/clerk-react";
+
 import { Crown, Search, User, BarChart3, Heart, Music, ChevronDown, LogOut, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
@@ -24,8 +24,6 @@ import {
 } from "./ui/dropdown-menu";
 
 const AudixTopbar = () => {
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
   const { userProfile } = useUserProfile();
   const { logout } = useLogout();
   const { isAuthenticated, user: customUser, logout: customLogout } = useCustomAuth();
@@ -56,8 +54,8 @@ const AudixTopbar = () => {
 
 
 
-        {/* Show login button when user is not authenticated (neither custom nor Clerk) */}
-        {!isAuthenticated && !isSignedIn && (
+        {/* Show login button when user is not authenticated */}
+        {!isAuthenticated && (
           <Link
             to="/login"
             className={cn(
@@ -69,8 +67,8 @@ const AudixTopbar = () => {
           </Link>
         )}
 
-        {/* Premium upgrade button - Only show when user is logged in (either custom or Clerk) */}
-        {(isAuthenticated || isSignedIn) && (
+        {/* Premium upgrade button - Only show when user is logged in */}
+        {isAuthenticated && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -92,8 +90,8 @@ const AudixTopbar = () => {
           </TooltipProvider>
         )}
 
-        {/* User dropdown - Only show when user is logged in (either custom or Clerk) */}
-        {(isAuthenticated || isSignedIn) && (
+        {/* User dropdown - Only show when user is logged in */}
+        {isAuthenticated && (
           <div className="flex items-center gap-1">
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -105,10 +103,10 @@ const AudixTopbar = () => {
             <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-zinc-700">
               <div className="px-3 py-2 border-b border-zinc-700">
                 <p className="text-sm font-medium text-white">
-                  {customUser?.firstName || userProfile?.firstName || user?.firstName || 'User'}
+                  {customUser?.firstName || userProfile?.firstName || 'User'}
                 </p>
                 <p className="text-xs text-zinc-400">
-                  {customUser?.email || userProfile?.email || user?.emailAddresses[0]?.emailAddress}
+                  {customUser?.email || userProfile?.email}
                 </p>
               </div>
               
