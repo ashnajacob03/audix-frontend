@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import AudixTopbar from '@/components/AudixTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,14 +17,32 @@ import {
   Clock
 } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+
 const Messages = () => {
-  const { userProfile } = useUserProfile();
-  const [selectedChat, setSelectedChat] = useState<number | null>(1);
+  const { user } = useCustomAuth();
+  const [friends, setFriends] = useState<any[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Friends data (empty - ready for backend integration)
-  const friends: any[] = [];
+  useEffect(() => {
+    const fetchFriends = async () => {
+      if (!user) return;
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${API_BASE_URL}/user/friends`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setFriends(data.data.friends || []);
+      }
+    };
+    fetchFriends();
+  }, [user]);
 
   // Messages for selected chat (empty - ready for backend integration)
   const messages: any[] = [];

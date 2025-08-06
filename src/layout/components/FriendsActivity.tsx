@@ -31,6 +31,8 @@ const FriendsActivity = () => {
 	const [requestReceivedUsers, setRequestReceivedUsers] = useState<Set<string>>(new Set());
 	const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
 
+	const ADMIN_EMAIL = 'ashnajacob003@gmail.com'; // Change to your actual admin email
+
 	// Fetch all users
 	const fetchUsers = async () => {
 		if (!isAuthenticated) return;
@@ -97,6 +99,7 @@ const FriendsActivity = () => {
 			if (data.success) {
 				setRequestSentUsers(prev => new Set(prev).add(userId));
 				toast.success('Follow request sent');
+				fetchUsers(); // <-- refetch
 			} else {
 				toast.error(data.message || 'Failed to send follow request');
 			}
@@ -137,6 +140,7 @@ const FriendsActivity = () => {
 				});
 				setFollowingUsers(prev => new Set(prev).add(userId));
 				toast.success('Follow request accepted');
+				fetchUsers(); // <-- refetch
 			} else {
 				toast.error(data.message || 'Failed to accept follow request');
 			}
@@ -176,6 +180,7 @@ const FriendsActivity = () => {
 					return newSet;
 				});
 				toast.success('Follow request declined');
+				fetchUsers(); // <-- refetch
 			} else {
 				toast.error(data.message || 'Failed to decline follow request');
 			}
@@ -215,6 +220,7 @@ const FriendsActivity = () => {
 					return newSet;
 				});
 				toast.success('User unfollowed');
+				fetchUsers(); // <-- refetch
 			} else {
 				toast.error(data.message || 'Failed to unfollow user');
 			}
@@ -271,7 +277,7 @@ const FriendsActivity = () => {
 					<Users className='size-5 text-white' />
 					<h2 className='text-white font-semibold'>Discover People</h2>
 				</div>
-				<span className='text-xs text-zinc-400'>{users.length} users</span>
+				<span className='text-xs text-zinc-400'>{users.filter(user => user.email !== ADMIN_EMAIL).length} users</span>
 			</div>
 
 			<ScrollArea className='flex-1'>
@@ -288,7 +294,7 @@ const FriendsActivity = () => {
 								<div className='w-16 h-8 bg-zinc-700 rounded'></div>
 							</div>
 						))
-					) : users.length === 0 ? (
+					) : users.filter(user => user.email !== ADMIN_EMAIL).length === 0 ? (
 						<div className='flex flex-col items-center justify-center py-12 text-center'>
 							<Users className='size-12 text-zinc-600 mb-4' />
 							<h3 className='text-lg font-medium text-white mb-2'>No users found</h3>
@@ -297,7 +303,7 @@ const FriendsActivity = () => {
 							</p>
 						</div>
 					) : (
-						users.map((user) => (
+						users.filter(user => user.email !== ADMIN_EMAIL).map((user) => (
 							<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
 								{/* Avatar */}
 								<div className='relative flex-shrink-0'>
@@ -426,7 +432,7 @@ const FriendsActivity = () => {
 			{/* Footer */}
 			<div className='mt-4 pt-4 border-t border-zinc-800'>
 				<p className='text-xs text-zinc-500 text-center'>
-					{users.length > 0
+					{users.filter(user => user.email !== ADMIN_EMAIL).length > 0
 						? 'Connect with fellow music enthusiasts'
 						: 'Discover new friends who share your music taste'
 					}
