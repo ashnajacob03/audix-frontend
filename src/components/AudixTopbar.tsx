@@ -103,7 +103,7 @@ const AudixTopbar = () => {
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 p-2 rounded-full hover:bg-zinc-800/50 transition-colors">
-                <UserAvatar size="md" showOnlineStatus={true} />
+                <UserAvatar size="md" showOnlineStatus={true} src={customUser?.picture} firstName={customUser?.firstName} lastName={customUser?.lastName} />
                 <ChevronDown className="w-4 h-4 text-zinc-400" />
               </button>
             </DropdownMenuTrigger>

@@ -68,7 +68,7 @@ const Dashboard = () => {
         <div className="p-4 sm:p-6">
           <div className="mb-8">
             <div className="flex items-center gap-4 mb-6">
-              <UserAvatar size="2xl" showOnlineStatus={true} />
+              <UserAvatar size="2xl" showOnlineStatus={true} src={user?.picture} firstName={user?.firstName} lastName={user?.lastName} />
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">
                   Welcome back, {userProfile?.firstName || user?.firstName || 'Music Lover'}!

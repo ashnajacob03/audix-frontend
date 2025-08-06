@@ -13,13 +13,6 @@ interface UserProfile {
   isAdmin: boolean;
   createdAt: string;
   lastLogin?: string;
-  // Clerk data as fallback
-  clerkData?: {
-    firstName?: string;
-    lastName?: string;
-    fullName?: string;
-    email?: string;
-  };
 }
 
 interface UseUserProfileReturn {
@@ -96,12 +89,6 @@ export const useUserProfile = (): UseUserProfileReturn => {
           isAdmin: mongoUser.isAdmin || false,
           createdAt: mongoUser.createdAt,
           lastLogin: mongoUser.lastLogin,
-          clerkData: {
-            firstName: clerkUser.firstName || undefined,
-            lastName: clerkUser.lastName || undefined,
-            fullName: clerkUser.fullName || undefined,
-            email: clerkUser.emailAddresses[0]?.emailAddress || undefined,
-          }
         };
         setUserProfile(profile);
       } else {
@@ -110,29 +97,6 @@ export const useUserProfile = (): UseUserProfileReturn => {
     } catch (err: any) {
       console.error('Error fetching user profile:', err);
       setError(err.message);
-      
-      // Fallback to Clerk data on error
-      if (clerkUser) {
-        const fallbackProfile: UserProfile = {
-          id: clerkUser.id,
-          firstName: clerkUser.firstName || '',
-          lastName: clerkUser.lastName || '',
-          fullName: clerkUser.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim(),
-          email: clerkUser.emailAddresses[0]?.emailAddress || '',
-          profilePicture: clerkUser.imageUrl,
-          isEmailVerified: clerkUser.emailAddresses[0]?.verification?.status === 'verified',
-          accountType: 'free',
-          isAdmin: false,
-          createdAt: clerkUser.createdAt?.toISOString() || new Date().toISOString(),
-          clerkData: {
-            firstName: clerkUser.firstName || undefined,
-            lastName: clerkUser.lastName || undefined,
-            fullName: clerkUser.fullName || undefined,
-            email: clerkUser.emailAddresses[0]?.emailAddress || undefined,
-          }
-        };
-        setUserProfile(fallbackProfile);
-      }
     } finally {
       setIsLoading(false);
     }

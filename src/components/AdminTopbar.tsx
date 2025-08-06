@@ -94,7 +94,7 @@ const AdminTopbar = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-zinc-800/50 transition-colors">
-              <UserAvatar size="md" showOnlineStatus={true} className="ring-red-500/20 hover:ring-red-500/40" />
+              <UserAvatar size="md" showOnlineStatus={true} className="ring-red-500/20 hover:ring-red-500/40" src={user?.picture} firstName={user?.firstName} lastName={user?.lastName} />
               <ChevronDown className="w-4 h-4 text-zinc-400" />
             </button>
           </DropdownMenuTrigger>
@@ -105,7 +105,7 @@ const AdminTopbar = () => {
                 {userProfile?.firstName || user?.firstName || 'Admin'}
               </p>
               <p className="text-xs text-zinc-400">
-                {userProfile?.email || user?.emailAddresses[0]?.emailAddress}
+                {userProfile?.email || user?.email}
               </p>
               <p className="text-xs text-yellow-400 flex items-center gap-1 mt-1">
                 <Crown className="w-3 h-3" />
