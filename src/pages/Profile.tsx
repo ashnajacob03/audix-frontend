@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
+import UserProfileModal from '@/components/UserProfileModal';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { User, Music, Heart, BarChart3, Clock, PlayCircle } from 'lucide-react';
+import { User, Music, Heart, BarChart3, Clock, PlayCircle, MessageCircle } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const { user } = useCustomAuth();
   const { userProfile, isLoading } = useUserProfile();
+  const navigate = useNavigate();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // Mock data for user stats
   const userStats = [
@@ -160,7 +165,14 @@ const Profile = () => {
           {/* Quick Actions */}
           <div className="mt-8 bg-zinc-800/40 rounded-lg p-6">
             <h2 className="text-xl font-bold text-white mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <button 
+                onClick={() => setIsProfileModalOpen(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Messages
+              </button>
               <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
                 Create Playlist
               </button>
@@ -177,6 +189,12 @@ const Profile = () => {
           </div>
         </div>
       </ScrollArea>
+      
+      {/* User Profile Modal */}
+      <UserProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </main>
   );
 };
