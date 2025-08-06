@@ -1,4 +1,4 @@
-import { useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -6,7 +6,7 @@ import { User, Music, Heart, BarChart3, Clock, PlayCircle } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 
 const Profile = () => {
-  const { user } = useUser();
+  const { user } = useCustomAuth();
   const { userProfile, isLoading } = useUserProfile();
 
   // Mock data for user stats
@@ -74,7 +74,7 @@ const Profile = () => {
                   {userProfile?.firstName || user?.firstName || 'Music Lover'}
                 </h1>
                 <p className="text-zinc-400">
-                  {userProfile?.email || user?.emailAddresses[0]?.emailAddress}
+                  {userProfile?.email || user?.email}
                 </p>
                 {isLoading && (
                   <p className="text-xs text-zinc-500">Loading profile...</p>
@@ -117,7 +117,7 @@ const Profile = () => {
                 <div className="flex justify-between items-center py-3 border-b border-zinc-700/50">
                   <span className="text-zinc-400">Email</span>
                   <span className="text-white">
-                    {userProfile?.email || user?.emailAddresses[0]?.emailAddress}
+                    {userProfile?.email || user?.email}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-zinc-700/50">

@@ -6,6 +6,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
 import { useCustomAuth } from "@/contexts/AuthContext";
 import UserAvatar from "./UserAvatar";
+import NotificationDropdown from "./NotificationDropdown";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "./ui/button";
@@ -52,7 +53,13 @@ const AudixTopbar = () => {
           Search
         </Link>
 
-
+        {/* Notification Dropdown - Only show when user is logged in */}
+        {isAuthenticated && customUser && (
+          <NotificationDropdown 
+            userId={customUser.id} 
+            authToken={localStorage.getItem('accessToken') || ''} 
+          />
+        )}
 
         {/* Show login button when user is not authenticated */}
         {!isAuthenticated && (

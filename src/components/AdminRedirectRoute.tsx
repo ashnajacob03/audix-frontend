@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 
 interface AdminRedirectRouteProps {
   children: React.ReactNode;
@@ -8,13 +8,13 @@ interface AdminRedirectRouteProps {
 
 const AdminRedirectRoute: React.FC<AdminRedirectRouteProps> = ({ children }) => {
   const navigate = useNavigate();
-  const { user, isLoaded } = useUser();
+  const { user, isLoading } = useCustomAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      // Wait for Clerk to load
-      if (!isLoaded) return;
+      // Wait for auth to load
+      if (isLoading) return;
 
       // If no user, let the ProtectedRoute handle it
       if (!user) {
@@ -22,7 +22,7 @@ const AdminRedirectRoute: React.FC<AdminRedirectRouteProps> = ({ children }) => 
         return;
       }
 
-      const userEmail = user.emailAddresses[0]?.emailAddress;
+      const userEmail = user.email;
       const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
 
       // Immediate redirect for admin email
@@ -62,10 +62,10 @@ const AdminRedirectRoute: React.FC<AdminRedirectRouteProps> = ({ children }) => 
     };
 
     checkAdminStatus();
-  }, [user, isLoaded, navigate]);
+  }, [user, isLoading, navigate]);
 
   // Show loading while checking admin status
-  if (isChecking || !isLoaded) {
+  if (isChecking || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
         <div className="text-white text-center">

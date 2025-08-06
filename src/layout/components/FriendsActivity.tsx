@@ -1,10 +1,10 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { Users, Music, UserPlus, UserCheck, Clock, Crown } from "lucide-react";
+import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as ClockIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 interface User {
   id: string;
@@ -19,6 +19,7 @@ interface User {
   isOnline: boolean;
   isFollowing: boolean;
   followersCount: number;
+  friendStatus: 'none' | 'friends' | 'request_sent' | 'request_received';
 }
 
 const FriendsActivity = () => {
@@ -26,6 +27,9 @@ const FriendsActivity = () => {
 	const [users, setUsers] = useState<User[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set());
+	const [requestSentUsers, setRequestSentUsers] = useState<Set<string>>(new Set());
+	const [requestReceivedUsers, setRequestReceivedUsers] = useState<Set<string>>(new Set());
+	const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
 
 	// Fetch all users
 	const fetchUsers = async () => {
@@ -44,13 +48,26 @@ const FriendsActivity = () => {
 			const data = await response.json();
 			if (data.success) {
 				setUsers(data.data.users);
-				// Initialize following state
-				const following = new Set(
-					data.data.users
-						.filter((user: User) => user.isFollowing)
-						.map((user: User) => user.id)
-				);
+				// Initialize following and request states
+				const following = new Set();
+				const sentRequests = new Set();
+				const receivedRequests = new Set();
+
+				data.data.users.forEach((user: User) => {
+					if (user.isFollowing) {
+						following.add(user.id);
+					}
+					if (user.friendStatus === 'request_sent') {
+						sentRequests.add(user.id);
+					}
+					if (user.friendStatus === 'request_received') {
+						receivedRequests.add(user.id);
+					}
+				});
+
 				setFollowingUsers(following);
+				setRequestSentUsers(sentRequests);
+				setRequestReceivedUsers(receivedRequests);
 			}
 		} catch (error) {
 			console.error('Error fetching users:', error);
@@ -60,15 +77,16 @@ const FriendsActivity = () => {
 		}
 	};
 
-	// Follow/Unfollow user
-	const handleFollowToggle = async (userId: string) => {
+	// Send follow request
+	const handleFollowRequest = async (userId: string) => {
+		if (processingRequests.has(userId)) return;
+
 		try {
+			setProcessingRequests(prev => new Set(prev).add(userId));
 			const token = localStorage.getItem('accessToken');
-			const isCurrentlyFollowing = followingUsers.has(userId);
-			const method = isCurrentlyFollowing ? 'DELETE' : 'POST';
 
 			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}`, {
-				method,
+				method: 'POST',
 				headers: {
 					'Authorization': `Bearer ${token}`,
 					'Content-Type': 'application/json',
@@ -77,37 +95,138 @@ const FriendsActivity = () => {
 
 			const data = await response.json();
 			if (data.success) {
-				// Update local state
-				const newFollowingUsers = new Set(followingUsers);
-				if (isCurrentlyFollowing) {
-					newFollowingUsers.delete(userId);
-					toast.success('User unfollowed');
-				} else {
-					newFollowingUsers.add(userId);
-					toast.success('User followed');
-				}
-				setFollowingUsers(newFollowingUsers);
-
-				// Update user's followers count
-				setUsers(prevUsers =>
-					prevUsers.map(user =>
-						user.id === userId
-							? {
-								...user,
-								followersCount: isCurrentlyFollowing
-									? user.followersCount - 1
-									: user.followersCount + 1,
-								isFollowing: !isCurrentlyFollowing
-							}
-							: user
-					)
-				);
+				setRequestSentUsers(prev => new Set(prev).add(userId));
+				toast.success('Follow request sent');
 			} else {
-				toast.error(data.message || 'Failed to update follow status');
+				toast.error(data.message || 'Failed to send follow request');
 			}
 		} catch (error) {
-			console.error('Error toggling follow:', error);
-			toast.error('Failed to update follow status');
+			console.error('Error sending follow request:', error);
+			toast.error('Failed to send follow request');
+		} finally {
+			setProcessingRequests(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(userId);
+				return newSet;
+			});
+		}
+	};
+
+	// Accept follow request
+	const handleAcceptRequest = async (userId: string) => {
+		if (processingRequests.has(userId)) return;
+
+		try {
+			setProcessingRequests(prev => new Set(prev).add(userId));
+			const token = localStorage.getItem('accessToken');
+
+			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}/accept`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+
+			const data = await response.json();
+			if (data.success) {
+				setRequestReceivedUsers(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(userId);
+					return newSet;
+				});
+				setFollowingUsers(prev => new Set(prev).add(userId));
+				toast.success('Follow request accepted');
+			} else {
+				toast.error(data.message || 'Failed to accept follow request');
+			}
+		} catch (error) {
+			console.error('Error accepting follow request:', error);
+			toast.error('Failed to accept follow request');
+		} finally {
+			setProcessingRequests(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(userId);
+				return newSet;
+			});
+		}
+	};
+
+	// Decline follow request
+	const handleDeclineRequest = async (userId: string) => {
+		if (processingRequests.has(userId)) return;
+
+		try {
+			setProcessingRequests(prev => new Set(prev).add(userId));
+			const token = localStorage.getItem('accessToken');
+
+			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}/decline`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+
+			const data = await response.json();
+			if (data.success) {
+				setRequestReceivedUsers(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(userId);
+					return newSet;
+				});
+				toast.success('Follow request declined');
+			} else {
+				toast.error(data.message || 'Failed to decline follow request');
+			}
+		} catch (error) {
+			console.error('Error declining follow request:', error);
+			toast.error('Failed to decline follow request');
+		} finally {
+			setProcessingRequests(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(userId);
+				return newSet;
+			});
+		}
+	};
+
+	// Unfollow user
+	const handleUnfollow = async (userId: string) => {
+		if (processingRequests.has(userId)) return;
+
+		try {
+			setProcessingRequests(prev => new Set(prev).add(userId));
+			const token = localStorage.getItem('accessToken');
+
+			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}`, {
+				method: 'DELETE',
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+
+			const data = await response.json();
+			if (data.success) {
+				setFollowingUsers(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(userId);
+					return newSet;
+				});
+				toast.success('User unfollowed');
+			} else {
+				toast.error(data.message || 'Failed to unfollow user');
+			}
+		} catch (error) {
+			console.error('Error unfollowing user:', error);
+			toast.error('Failed to unfollow user');
+		} finally {
+			setProcessingRequests(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(userId);
+				return newSet;
+			});
 		}
 	};
 
@@ -212,27 +331,74 @@ const FriendsActivity = () => {
 
 									{/* Follow button under name */}
 									<div className='mb-2'>
-										<button
-											onClick={() => handleFollowToggle(user.id)}
-											className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-												followingUsers.has(user.id)
-													? 'bg-zinc-700 text-white hover:bg-red-600 hover:text-white'
-													: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
-											}`}
-										>
-											{followingUsers.has(user.id) ? (
-												<>
+										{followingUsers.has(user.id) ? (
+											<button
+												onClick={() => handleUnfollow(user.id)}
+												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+													processingRequests.has(user.id)
+														? 'bg-zinc-700 text-white cursor-not-allowed'
+														: 'bg-zinc-700 text-white hover:bg-red-600 hover:text-white'
+												}`}
+												disabled={processingRequests.has(user.id)}
+											>
+												<UserCheck className='size-3' />
+												<span className='hidden group-hover:inline'>Unfollow</span>
+												<span className='group-hover:hidden'>Following</span>
+											</button>
+										) : requestSentUsers.has(user.id) ? (
+											<button
+												onClick={() => handleUnfollow(user.id)}
+												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+													processingRequests.has(user.id)
+														? 'bg-zinc-700 text-white cursor-not-allowed'
+														: 'bg-orange-600 text-white hover:bg-orange-700'
+												}`}
+												disabled={processingRequests.has(user.id)}
+											>
+												<ClockIcon className='size-3' />
+												<span>Requested</span>
+											</button>
+										) : requestReceivedUsers.has(user.id) ? (
+											<div className='flex items-center gap-2'>
+												<button
+													onClick={() => handleAcceptRequest(user.id)}
+													className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+														processingRequests.has(user.id)
+															? 'bg-zinc-700 text-white cursor-not-allowed'
+															: 'bg-green-600 text-white hover:bg-green-700 hover:scale-105'
+													}`}
+													disabled={processingRequests.has(user.id)}
+												>
 													<UserCheck className='size-3' />
-													<span className='hidden group-hover:inline'>Unfollow</span>
-													<span className='group-hover:hidden'>Following</span>
-												</>
-											) : (
-												<>
-													<UserPlus className='size-3' />
-													<span>Follow</span>
-												</>
-											)}
-										</button>
+													<span>Accept</span>
+												</button>
+												<button
+													onClick={() => handleDeclineRequest(user.id)}
+													className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+														processingRequests.has(user.id)
+															? 'bg-zinc-700 text-white cursor-not-allowed'
+															: 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+													}`}
+													disabled={processingRequests.has(user.id)}
+												>
+													<UserX className='size-3' />
+													<span>Decline</span>
+												</button>
+											</div>
+										) : (
+											<button
+												onClick={() => handleFollowRequest(user.id)}
+												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+													processingRequests.has(user.id)
+														? 'bg-zinc-700 text-white cursor-not-allowed'
+														: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
+												}`}
+												disabled={processingRequests.has(user.id)}
+											>
+												<UserPlus className='size-3' />
+												<span>Follow</span>
+											</button>
+										)}
 									</div>
 
 									<div className='flex items-center gap-2 text-xs text-zinc-400'>

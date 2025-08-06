@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
@@ -30,7 +30,7 @@ import {
 import { toast } from 'react-hot-toast';
 
 const Settings = () => {
-  const { user } = useUser();
+  const { user } = useCustomAuth();
   const { userProfile, isLoading, refetch } = useUserProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -46,7 +46,7 @@ const Settings = () => {
   const [formData, setFormData] = useState({
     firstName: userProfile?.firstName || user?.firstName || '',
     lastName: userProfile?.lastName || user?.lastName || '',
-    email: userProfile?.email || user?.emailAddresses[0]?.emailAddress || '',
+    email: userProfile?.email || user?.email || '',
     phone: '',
     bio: '',
     location: '',

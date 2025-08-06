@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import AdminTopbar from '@/components/AdminTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 const AdminDashboard = () => {
-  const { user } = useUser();
+  const { user } = useCustomAuth();
   const { userProfile } = useUserProfile();
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -49,7 +49,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const checkAdminAccess = () => {
-      const userEmail = userProfile?.email || user?.emailAddresses[0]?.emailAddress;
+      const userEmail = userProfile?.email || user?.email;
 
       if (userEmail === ADMIN_EMAIL) {
         setIsAuthorized(true);

@@ -1,4 +1,4 @@
-import { useUser } from "@clerk/clerk-react";
+import { useCustomAuth } from "@/contexts/AuthContext";
 import { 
   Crown, 
   Shield, 
@@ -25,7 +25,7 @@ import {
 } from "./ui/dropdown-menu";
 
 const AdminTopbar = () => {
-  const { user } = useUser();
+  const { user } = useCustomAuth();
   const { userProfile } = useUserProfile();
   const { logout } = useLogout();
 

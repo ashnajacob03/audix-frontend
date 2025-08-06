@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { 
   Crown, 
@@ -21,8 +21,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Premium = () => {
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
+  const { user, isAuthenticated } = useCustomAuth();
   const { userProfile } = useUserProfile();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
 
@@ -108,7 +107,7 @@ const Premium = () => {
               Unlock the full potential of your music experience with ad-free listening, 
               unlimited skips, and high-quality audio.
             </p>
-            {isSignedIn && (
+            {isAuthenticated && (
               <div className="bg-zinc-900/50 rounded-lg p-4 inline-block">
                 <p className="text-zinc-300">
                   Welcome back, <span className="text-white font-medium">
