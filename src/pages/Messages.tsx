@@ -3,6 +3,7 @@ import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import AudixTopbar from '@/components/AudixTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLocation } from 'react-router-dom';
 import { 
   MessageCircle, 
   Send, 
@@ -21,6 +22,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002
 
 const Messages = () => {
   const { user } = useCustomAuth();
+  const location = useLocation();
   const [friends, setFriends] = useState<any[]>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
@@ -43,6 +45,14 @@ const Messages = () => {
     };
     fetchFriends();
   }, [user]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const friendId = params.get('friendId');
+    if (friendId) {
+      setSelectedChat(friendId);
+    }
+  }, [location.search]);
 
   // Messages for selected chat (empty - ready for backend integration)
   const messages: any[] = [];

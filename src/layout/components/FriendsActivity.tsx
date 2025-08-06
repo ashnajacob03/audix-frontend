@@ -3,6 +3,7 @@ import { useCustomAuth } from "@/contexts/AuthContext";
 import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as ClockIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -24,6 +25,7 @@ interface User {
 
 const FriendsActivity = () => {
 	const { isAuthenticated, user: currentUser } = useCustomAuth();
+	const navigate = useNavigate();
 	const [users, setUsers] = useState<User[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set());
@@ -79,13 +81,60 @@ const FriendsActivity = () => {
 		}
 	};
 
+	// Debug user relationship
+	const debugUserRelationship = async (userId: string) => {
+		try {
+			const token = localStorage.getItem('accessToken');
+			const response = await fetch(`${API_BASE_URL}/user/debug/${userId}`, {
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+			const data = await response.json();
+			console.log('User relationship debug:', data);
+			return data;
+		} catch (error) {
+			console.error('Debug failed:', error);
+		}
+	};
+
+	// Fix relationships (temporary)
+	const fixRelationships = async () => {
+		try {
+			const token = localStorage.getItem('accessToken');
+			const response = await fetch(`${API_BASE_URL}/user/fix-relationships`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+			const data = await response.json();
+			console.log('Fix relationships result:', data);
+			if (data.success) {
+				toast.success(`Fixed ${data.data.fixed} relationships`);
+				fetchUsers(); // Refresh the user list
+			}
+		} catch (error) {
+			console.error('Fix relationships failed:', error);
+			toast.error('Failed to fix relationships');
+		}
+	};
+
 	// Send follow request
 	const handleFollowRequest = async (userId: string) => {
+		console.log('Attempting to follow user:', userId);
+		
+		// Debug the relationship first
+		await debugUserRelationship(userId);
+		
 		if (processingRequests.has(userId)) return;
 
 		try {
 			setProcessingRequests(prev => new Set(prev).add(userId));
 			const token = localStorage.getItem('accessToken');
+			console.log('Token available:', !!token);
 
 			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}`, {
 				method: 'POST',
@@ -96,11 +145,23 @@ const FriendsActivity = () => {
 			});
 
 			const data = await response.json();
+			console.log('Follow request response:', { 
+				status: response.status, 
+				data, 
+				userId,
+				message: data.message,
+				success: data.success 
+			});
 			if (data.success) {
 				setRequestSentUsers(prev => new Set(prev).add(userId));
 				toast.success('Follow request sent');
 				fetchUsers(); // <-- refetch
 			} else {
+				console.error('Follow request failed:', {
+					status: response.status,
+					message: data.message,
+					fullResponse: data
+				});
 				toast.error(data.message || 'Failed to send follow request');
 			}
 		} catch (error) {
@@ -337,42 +398,38 @@ const FriendsActivity = () => {
 
 									{/* Follow button under name */}
 									<div className='mb-2'>
-										{followingUsers.has(user.id) ? (
+										{user.friendStatus === 'friends' ? (
+											<div className='flex gap-2'>
+												<button
+													onClick={() => handleUnfollow(user.id)}
+													className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-800 text-white border border-zinc-600 hover:bg-red-600 hover:border-red-600 hover:text-white group'
+												>
+													<UserCheck className='size-3 group-hover:hidden' />
+													<UserX className='size-3 hidden group-hover:block' />
+													<span className='group-hover:hidden'>Following</span>
+													<span className='hidden group-hover:block'>Unfollow</span>
+												</button>
+												<button
+													onClick={() => navigate(`/messages?friendId=${user.id}`)}
+													className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105 shadow-lg hover:shadow-green-500/25'
+												>
+													<Send className='size-3' />
+													<span>Message</span>
+												</button>
+											</div>
+										) : user.friendStatus === 'request_sent' ? (
 											<button
-												onClick={() => handleUnfollow(user.id)}
-												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-													processingRequests.has(user.id)
-														? 'bg-zinc-700 text-white cursor-not-allowed'
-														: 'bg-zinc-700 text-white hover:bg-red-600 hover:text-white'
-												}`}
-												disabled={processingRequests.has(user.id)}
-											>
-												<UserCheck className='size-3' />
-												<span className='hidden group-hover:inline'>Unfollow</span>
-												<span className='group-hover:hidden'>Following</span>
-											</button>
-										) : requestSentUsers.has(user.id) ? (
-											<button
-												onClick={() => handleUnfollow(user.id)}
-												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-													processingRequests.has(user.id)
-														? 'bg-zinc-700 text-white cursor-not-allowed'
-														: 'bg-orange-600 text-white hover:bg-orange-700'
-												}`}
-												disabled={processingRequests.has(user.id)}
+												className='px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-orange-600 text-white cursor-not-allowed opacity-70'
+												disabled
 											>
 												<ClockIcon className='size-3' />
 												<span>Requested</span>
 											</button>
-										) : requestReceivedUsers.has(user.id) ? (
-											<div className='flex items-center gap-2'>
+										) : user.friendStatus === 'request_received' ? (
+											<div className='flex gap-2'>
 												<button
 													onClick={() => handleAcceptRequest(user.id)}
-													className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-														processingRequests.has(user.id)
-															? 'bg-zinc-700 text-white cursor-not-allowed'
-															: 'bg-green-600 text-white hover:bg-green-700 hover:scale-105'
-													}`}
+													className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
 													disabled={processingRequests.has(user.id)}
 												>
 													<UserCheck className='size-3' />
@@ -380,23 +437,19 @@ const FriendsActivity = () => {
 												</button>
 												<button
 													onClick={() => handleDeclineRequest(user.id)}
-													className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-														processingRequests.has(user.id)
-															? 'bg-zinc-700 text-white cursor-not-allowed'
-															: 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
-													}`}
+													className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
 													disabled={processingRequests.has(user.id)}
 												>
 													<UserX className='size-3' />
-													<span>Decline</span>
+													<span>Reject</span>
 												</button>
 											</div>
 										) : (
 											<button
 												onClick={() => handleFollowRequest(user.id)}
-												className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
+												className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${
 													processingRequests.has(user.id)
-														? 'bg-zinc-700 text-white cursor-not-allowed'
+														? 'bg-zinc-700 text-white cursor-not-allowed opacity-70'
 														: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
 												}`}
 												disabled={processingRequests.has(user.id)}
