@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { AlertCircle, Eye, EyeOff } from 'lucide-react';
-
+import { AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { validationConfig as defaultValidationConfig, validateName, validateEmail, validatePassword, validateRegistrationForm } from '../utils/validation';
+import { getPasswordStrength } from '../utils/validation';
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -15,64 +16,185 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [errorType, setErrorType] = useState<'validation' | 'auth' | 'network' | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [fieldValidating, setFieldValidating] = useState<{ [key: string]: boolean }>({});
+  const [fieldValid, setFieldValid] = useState<{ [key: string]: boolean }>({});
+  const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
+  const [dynamicValidationConfig, setDynamicValidationConfig] = useState(defaultValidationConfig);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  // Fix NodeJS.Timeout type for browser
+  const emailCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fetch dynamic validation config from backend
+  useEffect(() => {
+    const fetchValidationConfig = async () => {
+      try {
+        const res = await fetch('http://localhost:3002/api/config/validation');
+        const data = await res.json();
+        if (data.success && data.data) {
+          setDynamicValidationConfig(data.data);
+        }
+      } catch (err) {
+        // fallback to default config
+      } finally {
+        setConfigLoaded(true);
+      }
+    };
+    fetchValidationConfig();
+  }, []);
+
+  // Validate on every keystroke
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const trimmedValue = value.trim();
+    // If value contains any space, trigger error
+    if (value.includes(' ')) {
+      setFieldErrors(prev => ({ ...prev, [name]: 'Spaces are not allowed in this field.' }));
+      setFieldValid(prev => ({ ...prev, [name]: false }));
+    } else if (trimmedValue === '') {
+      setFieldErrors(prev => ({ ...prev, [name]: `${name.charAt(0).toUpperCase() + name.slice(1).replace('Name', ' name')} is required` }));
+      setFieldValid(prev => ({ ...prev, [name]: false }));
+    } else {
+      validateField(name, trimmedValue);
+    }
+    if (error) {
+      setError('');
+      setErrorType(null);
+    }
   };
 
+  // Validate on blur as well, and persist errors until valid
+  const handleInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    const trimmedValue = value.trim();
+    if (value.includes(' ')) {
+      setFieldErrors(prev => ({ ...prev, [name]: 'Spaces are not allowed in this field.' }));
+      setFieldValid(prev => ({ ...prev, [name]: false }));
+    } else if (trimmedValue === '') {
+      setFieldErrors(prev => ({ ...prev, [name]: `${name.charAt(0).toUpperCase() + name.slice(1).replace('Name', ' name')} is required` }));
+      setFieldValid(prev => ({ ...prev, [name]: false }));
+    } else {
+      validateField(name, trimmedValue);
+    }
+  };
 
+  // Enhanced validateField for email existence check
+  const validateField = async (fieldName: string, value: string) => {
+    setFieldValidating(prev => ({ ...prev, [fieldName]: true }));
+    try {
+      let validation;
+      if (fieldName === 'email') {
+        validation = await validateEmail(value, dynamicValidationConfig.email);
+        if (validation.isValid) {
+          // Debounce API call for email existence
+          if (emailCheckTimeout.current) clearTimeout(emailCheckTimeout.current);
+          emailCheckTimeout.current = setTimeout(async () => {
+            try {
+              const res = await fetch(`http://localhost:3002/api/auth/check-email?email=${encodeURIComponent(value)}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.exists) {
+                  setFieldErrors(prev => ({ ...prev, email: 'This email is already registered. Please sign in or use a different email.' }));
+                  setFieldValid(prev => ({ ...prev, email: false }));
+                } else {
+                  setFieldErrors(prev => ({ ...prev, email: '' }));
+                  setFieldValid(prev => ({ ...prev, email: true }));
+                }
+              }
+            } catch (err) {
+              // Network error, do not block user
+            } finally {
+              setFieldValidating(prev => ({ ...prev, email: false }));
+            }
+          }, 500); // 500ms debounce
+          return;
+        }
+      } else {
+        switch (fieldName) {
+          case 'firstName':
+            validation = validateName(value, 'First name', dynamicValidationConfig.name);
+            break;
+          case 'lastName':
+            validation = validateName(value, 'Last name', dynamicValidationConfig.name);
+            break;
+          case 'password':
+            validation = validatePassword(value, formData, dynamicValidationConfig.password);
+            break;
+          case 'confirmPassword':
+            validation = {
+              isValid: value === formData.password,
+              message: value === formData.password ? 'Passwords match' : 'Passwords do not match'
+            };
+            break;
+          default:
+            return;
+        }
+      }
+      if (validation) {
+        setFieldErrors(prev => ({ ...prev, [fieldName]: validation.isValid ? '' : validation.message }));
+        setFieldValid(prev => ({ ...prev, [fieldName]: validation.isValid }));
+      }
+    } catch (error) {
+      console.error('Field validation error:', error);
+    } finally {
+      if (fieldName !== 'email') setFieldValidating(prev => ({ ...prev, [fieldName]: false }));
+    }
+  };
+
+  // Real-time password strength checking
+  useEffect(() => {
+    if (formData.password) {
+      // setPasswordStrength(getPasswordStrength(formData.password)); // This line was removed as per the edit hint
+    }
+  }, [formData.password]);
+
+  // Real-time password confirmation checking
+  useEffect(() => {
+    if (formData.confirmPassword && touched.confirmPassword) {
+      const isMatch = formData.password === formData.confirmPassword;
+      setFieldErrors(prev => ({ 
+        ...prev, 
+        confirmPassword: isMatch ? '' : 'Passwords do not match' 
+      }));
+      setFieldValid(prev => ({ 
+        ...prev, 
+        confirmPassword: isMatch 
+      }));
+    }
+  }, [formData.password, formData.confirmPassword, touched.confirmPassword]);
+
+  // Helper component for field validation indicator
+  const FieldValidationIndicator = ({ fieldName }: { fieldName: string }) => {
+    if (fieldValidating[fieldName]) {
+      return <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />;
+    }
+    if (fieldValid[fieldName]) {
+      return <CheckCircle className="w-5 h-5 text-green-500" />;
+    }
+    if (fieldErrors[fieldName] && touched[fieldName]) {
+      return <XCircle className="w-5 h-5 text-red-500" />;
+    }
+    return null;
+  };
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
     setErrorType(null);
-
-    // Enhanced validation
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('Please enter both your first and last name');
+    // Use dynamic validation config
+    const validation = await validateRegistrationForm(formData, dynamicValidationConfig);
+    if (!validation.isValid) {
+      setFieldErrors(validation.errors);
+      const firstError = Object.values(validation.errors)[0];
+      setError(firstError);
       setErrorType('validation');
       setIsLoading(false);
       return;
     }
-
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim())) {
-      setError('Please enter a valid email address');
-      setErrorType('validation');
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      setErrorType('validation');
-      setIsLoading(false);
-      return;
-    }
-
-    // Password strength validation
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!passwordRegex.test(formData.password)) {
-      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-      setErrorType('validation');
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match. Please make sure both password fields are identical');
-      setErrorType('validation');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       // First, create user in your MongoDB database
       const response = await fetch('http://localhost:3002/api/auth/signup', {
@@ -147,10 +269,12 @@ const Signup = () => {
     }
   };
 
-
-
-
-
+  // Disable submit if config not loaded or any field invalid
+  const isFormInvalid =
+    !configLoaded ||
+    Object.values(fieldValid).some(valid => valid === false) ||
+    Object.keys(fieldValid).length < 5 || // not all fields validated yet
+    Object.values(fieldValidating).some(Boolean);
 
 
   return (
@@ -201,33 +325,61 @@ const Signup = () => {
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-300 mb-2">
                   First Name
                 </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                  placeholder="First name"
-                  required
-                  minLength={1}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    onBlur={handleInputBlur}
+                    className={`w-full px-4 py-3 pr-12 bg-[#2a2a2a] border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                      fieldErrors.firstName && touched.firstName
+                        ? 'border-red-500 focus:ring-red-500'
+                        : fieldValid.firstName
+                        ? 'border-green-500 focus:ring-[#1db954]'
+                        : 'border-[#404040] focus:ring-[#1db954]'
+                    }`}
+                    placeholder="First name"
+                    required
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <FieldValidationIndicator fieldName="firstName" />
+                  </div>
+                </div>
+                {fieldErrors.firstName && touched.firstName && (
+                  <p className="text-red-400 text-xs mt-1">{fieldErrors.firstName}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="lastName" className="block text-sm font-medium text-gray-300 mb-2">
                   Last Name
                 </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                  placeholder="Last name"
-                  required
-                  minLength={1}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    onBlur={handleInputBlur}
+                    className={`w-full px-4 py-3 pr-12 bg-[#2a2a2a] border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                      fieldErrors.lastName && touched.lastName
+                        ? 'border-red-500 focus:ring-red-500'
+                        : fieldValid.lastName
+                        ? 'border-green-500 focus:ring-[#1db954]'
+                        : 'border-[#404040] focus:ring-[#1db954]'
+                    }`}
+                    placeholder="Last name"
+                    required
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <FieldValidationIndicator fieldName="lastName" />
+                  </div>
+                </div>
+                {fieldErrors.lastName && touched.lastName && (
+                  <p className="text-red-400 text-xs mt-1">{fieldErrors.lastName}</p>
+                )}
               </div>
             </div>
 
@@ -236,78 +388,101 @@ const Signup = () => {
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
               </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                placeholder="Enter your email"
-                required
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  onBlur={handleInputBlur}
+                  className={`w-full px-4 py-3 pr-12 bg-[#2a2a2a] border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                    fieldErrors.email && touched.email
+                      ? 'border-red-500 focus:ring-red-500'
+                      : fieldValid.email
+                      ? 'border-green-500 focus:ring-[#1db954]'
+                      : 'border-[#404040] focus:ring-[#1db954]'
+                  }`}
+                  placeholder="Email address"
+                  required
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <FieldValidationIndicator fieldName="email" />
+                </div>
+              </div>
+              {fieldErrors.email && touched.email && (
+                <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+              )}
             </div>
 
-            {/* Password Fields */}
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                  placeholder="Create a password (min 8 characters)"
+                  onBlur={handleInputBlur}
+                  className={`w-full px-4 py-3 pr-12 bg-[#2a2a2a] border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                    fieldErrors.password && touched.password
+                      ? 'border-red-500 focus:ring-red-500'
+                      : fieldValid.password
+                      ? 'border-green-500 focus:ring-[#1db954]'
+                      : 'border-[#404040] focus:ring-[#1db954]'
+                  }`}
+                  placeholder="Password"
                   required
-                  minLength={8}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <FieldValidationIndicator fieldName="password" />
+                </div>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Must be at least 8 characters with uppercase, lowercase, and number
-              </p>
+              {fieldErrors.password && touched.password && (
+                <p className="text-red-400 text-xs mt-1">{fieldErrors.password}</p>
+              )}
             </div>
 
+            {/* Confirm Password Field */}
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
               </label>
               <div className="relative">
                 <input
-                  type={showConfirmPassword ? "text" : "password"}
+                  type="password"
                   id="confirmPassword"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                  placeholder="Confirm your password"
+                  onBlur={handleInputBlur}
+                  className={`w-full px-4 py-3 pr-12 bg-[#2a2a2a] border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 ${
+                    fieldErrors.confirmPassword && touched.confirmPassword
+                      ? 'border-red-500 focus:ring-red-500'
+                      : fieldValid.confirmPassword
+                      ? 'border-green-500 focus:ring-[#1db954]'
+                      : 'border-[#404040] focus:ring-[#1db954]'
+                  }`}
+                  placeholder="Confirm password"
                   required
-                  minLength={8}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <FieldValidationIndicator fieldName="confirmPassword" />
+                </div>
               </div>
+              {fieldErrors.confirmPassword && touched.confirmPassword && (
+                <p className="text-red-400 text-xs mt-1">{fieldErrors.confirmPassword}</p>
+              )}
             </div>
 
             {/* Sign Up Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isFormInvalid || isLoading}
               className="w-full bg-[#1db954] hover:bg-[#1ed760] disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:ring-offset-2 focus:ring-offset-[#121212]"
             >
               {isLoading ? 'Creating account...' : 'Create Account'}
@@ -338,8 +513,6 @@ const Signup = () => {
           </p>
         </div>
       </div>
-      
-
     </div>
   );
 };
