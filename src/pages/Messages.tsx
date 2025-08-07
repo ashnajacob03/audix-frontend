@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import AudixTopbar from '@/components/AudixTopbar';
+import UserAvatar from '@/components/UserAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  MessageCircle, 
-  Send, 
-  Search, 
-  MoreVertical, 
-  Phone, 
-  Video, 
+import {
+  MessageCircle,
+  Send,
+  Search,
+  MoreVertical,
+  Phone,
+  Video,
   Smile,
   Paperclip,
   User,
@@ -87,8 +88,7 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
-  const [followedUsers, setFollowedUsers] = useState<FollowedUser[]>([]);
+  const [friends, setFriends] = useState<FollowedUser[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -326,13 +326,13 @@ const Messages = () => {
     }, 1000);
   };
 
-  // Fetch followed users
+  // Fetch friends
   useEffect(() => {
-    const fetchFollowedUsers = async () => {
+    const fetchFriends = async () => {
       if (!user) return;
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`${API_BASE_URL}/user/all`, {
+        const response = await fetch(`${API_BASE_URL}/user/friends`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -340,29 +340,31 @@ const Messages = () => {
         });
         const data = await response.json();
         if (data.success) {
-          const followed = data.data.users.filter((u: any) => u.isFollowing).map((u: any) => ({
-            id: u.id,
-            name: u.name,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            avatar: u.picture,
-            online: u.isOnline,
-            lastSeen: u.lastSeen,
+          const friendsList = data.data.friends.map((friend: any) => ({
+            id: friend.id,
+            name: friend.name,
+            firstName: friend.firstName,
+            lastName: friend.lastName,
+            avatar: friend.avatar,
+            authMethod: friend.authMethod,
+            isGoogleUser: friend.isGoogleUser,
+            online: friend.online,
+            lastSeen: friend.lastSeen,
           }));
-          setFollowedUsers(followed);
+          setFriends(friendsList);
         }
       } catch (error) {
-        console.error('Failed to fetch followed users:', error);
+        console.error('Failed to fetch friends:', error);
       }
     };
-    fetchFollowedUsers();
+    fetchFriends();
   }, [user]);
 
-  // Merge conversations and followed users for sidebar
-  const sidebarUsers = followedUsers.map(fu => {
-    const conv = conversations.find(c => c.participant.id === fu.id);
+  // Merge conversations and friends for sidebar
+  const sidebarUsers = friends.map(friend => {
+    const conv = conversations.find(c => c.participant.id === friend.id);
     return {
-      ...fu,
+      ...friend,
       conversation: conv || null,
       unreadCount: conv?.unreadCount || 0,
       lastMessage: conv?.lastMessage || null,
@@ -376,7 +378,7 @@ const Messages = () => {
   );
 
   const selectedConversation = conversations.find(conv => conv.participant.id === selectedChat);
-  const selectedFriend = selectedConversation?.participant || followedUsers.find(u => u.id === selectedChat) || null;
+  const selectedFriend = selectedConversation?.participant || friends.find(u => u.id === selectedChat) || null;
 
   // Check if user is typing
   const isUserTyping = selectedChat && typingUsers.has(selectedChat);
@@ -402,10 +404,15 @@ const Messages = () => {
           {/* Header */}
           <div className="p-4 border-b border-zinc-700">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <MessageCircle className="w-5 h-5" />
-                Messages
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" />
+                  Messages
+                </h2>
+                <p className="text-sm text-zinc-400 mt-1">
+                  {friends.length} friend{friends.length !== 1 ? 's' : ''} available
+                </p>
+              </div>
             </div>
             
             {/* Search */}
@@ -427,9 +434,14 @@ const Messages = () => {
               {filteredSidebarUsers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <User className="w-12 h-12 text-zinc-600 mb-4" />
-                  <h3 className="text-lg font-medium text-white mb-2">No conversations yet</h3>
+                  <h3 className="text-lg font-medium text-white mb-2">
+                    {searchQuery ? 'No friends found' : 'No friends yet'}
+                  </h3>
                   <p className="text-sm text-zinc-400 max-w-48">
-                    {searchQuery ? 'No conversations match your search.' : 'Start connecting with friends to begin messaging.'}
+                    {searchQuery
+                      ? 'No friends match your search.'
+                      : 'Add friends to start messaging. Visit the Discover page to find and connect with other users.'
+                    }
                   </p>
                 </div>
               ) : (
@@ -451,25 +463,13 @@ const Messages = () => {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative">
-                          {user.avatar ? (
-                            <img
-                              src={user.avatar}
-                              alt={user.name}
-                              className="w-12 h-12 rounded-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/default-avatar.png';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-lg select-none">
-                              {user.firstName?.[0]?.toUpperCase() || ''}{user.lastName?.[0]?.toUpperCase() || ''}
-                            </div>
-                          )}
-                          {isOnline && (
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
-                          )}
-                        </div>
+                        <UserAvatar
+                          src={user.avatar}
+                          firstName={user.firstName}
+                          lastName={user.lastName}
+                          size="md"
+                          showOnlineStatus={isOnline}
+                        />
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
@@ -521,25 +521,13 @@ const Messages = () => {
               <div className="p-4 border-b border-zinc-700 bg-zinc-900/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      {selectedFriend?.avatar ? (
-                        <img
-                          src={selectedFriend.avatar}
-                          alt={selectedFriend.name}
-                          className="w-10 h-10 rounded-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = '/default-avatar.png';
-                          }}
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-base select-none">
-                          {selectedFriend?.firstName?.[0]?.toUpperCase() || ''}{selectedFriend?.lastName?.[0]?.toUpperCase() || ''}
-                        </div>
-                      )}
-                      {(onlineUsers.has(selectedFriend?.id) && onlineUsers.get(selectedFriend?.id)?.online) && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
-                      )}
-                    </div>
+                    <UserAvatar
+                      src={selectedFriend?.avatar}
+                      firstName={selectedFriend?.firstName}
+                      lastName={selectedFriend?.lastName}
+                      size="md"
+                      showOnlineStatus={onlineUsers.has(selectedFriend?.id) && onlineUsers.get(selectedFriend?.id)?.online}
+                    />
                     <div>
                       <h3 className="font-medium text-white">{selectedFriend.name}</h3>
                       <div className="flex items-center gap-1 text-xs text-zinc-400">
