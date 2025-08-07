@@ -4,6 +4,7 @@ import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as 
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
+import UserAvatar from "@/components/UserAvatar";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -311,10 +312,7 @@ const FriendsActivity = () => {
 		return `${Math.floor(diffInDays / 30)} months ago`;
 	};
 
-	// Get user initials for avatar fallback
-	const getUserInitials = (firstName: string, lastName: string) => {
-		return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-	};
+
 
 	useEffect(() => {
 		fetchUsers();
@@ -368,21 +366,13 @@ const FriendsActivity = () => {
 							<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
 								{/* Avatar */}
 								<div className='relative flex-shrink-0'>
-									{user.picture ? (
-										<img
-											src={user.picture}
-											alt={user.name}
-											className='size-10 rounded-full object-cover'
-										/>
-									) : (
-										<div className='size-10 rounded-full bg-gradient-to-br from-[#1db954] to-[#1ed760] flex items-center justify-center text-white font-semibold text-sm'>
-											{getUserInitials(user.firstName, user.lastName)}
-										</div>
-									)}
-									{/* Online indicator */}
-									{user.isOnline && (
-										<div className='absolute -bottom-0.5 -right-0.5 size-3 bg-green-500 rounded-full border-2 border-zinc-900'></div>
-									)}
+									<UserAvatar 
+										size="md" 
+										src={user.picture} 
+										firstName={user.firstName} 
+										lastName={user.lastName}
+										showOnlineStatus={user.isOnline}
+									/>
 								</div>
 
 								{/* User info and follow button */}

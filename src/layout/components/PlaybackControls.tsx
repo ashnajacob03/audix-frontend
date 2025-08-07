@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import FallbackImage from "@/components/FallbackImage";
 import {
   Pause,
   Play,
@@ -34,7 +35,7 @@ const mockCurrentSong = {
   _id: "1",
   title: "Blinding Lights",
   artist: "The Weeknd",
-  imageUrl: "https://via.placeholder.com/56x56/1db954/ffffff?text=BL"
+  imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=56&h=56&fit=crop&crop=center"
 };
 
 export const PlaybackControls = () => {
@@ -97,10 +98,11 @@ export const PlaybackControls = () => {
           {currentSong && (
             <>
               <div className="relative group">
-                <img
+                <FallbackImage
                   src={currentSong.imageUrl}
                   alt={currentSong.title}
                   className="w-14 h-14 object-cover rounded-md"
+                  fallbackSeed={currentSong._id}
                 />
                 {/* Link to song details overlay on hover */}
                 <Link

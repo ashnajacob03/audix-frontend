@@ -1,4 +1,5 @@
 import React from 'react';
+import { processGoogleProfileImage } from '@/utils/imageUtils';
 
 interface UserAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
@@ -24,13 +25,30 @@ const sizeMap = {
 };
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ size = 'md', showOnlineStatus = false, src, className = '', firstName, lastName }) => {
+  const [imageError, setImageError] = React.useState(false);
+  
+  // Process the image URL (especially for Google profile images)
+  const processedSrc = React.useMemo(() => {
+    return processGoogleProfileImage(src);
+  }, [src]);
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    // Image loaded successfully
+  };
+
   return (
     <div className={`relative inline-block ${sizeMap[size]} ${className}`}>
-      {src ? (
+      {processedSrc && !imageError ? (
         <img
-          src={src}
+          src={processedSrc}
           alt="Profile"
           className={`rounded-full object-cover w-full h-full`}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
         />
       ) : (
         <div className={`rounded-full bg-gradient-to-br from-[#1db954] to-[#1ed760] flex items-center justify-center text-white font-semibold text-sm w-full h-full`}>

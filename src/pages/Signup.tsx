@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { cleanupUser } from '../utils/userCleanup';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -14,8 +14,9 @@ const Signup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [errorType, setErrorType] = useState<'validation' | 'auth' | 'network' | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -24,50 +25,50 @@ const Signup = () => {
     });
   };
 
-  const handleCleanupUser = async () => {
-    if (!formData.email.trim()) {
-      setError('Please enter an email address to cleanup');
-      return;
-    }
 
-    setIsCleaningUp(true);
-    setError('');
-
-    try {
-      const result = await cleanupUser(formData.email.trim());
-      if (result.success) {
-        setError(''); // Clear any previous errors
-        alert(`✅ Cleanup successful!\n\nMongoDB user deleted: ${result.details?.mongoUserDeleted ? 'Yes' : 'No'}\nClerk user deleted: ${result.details?.clerkUserDeleted ? 'Yes' : 'No'}\n\nYou can now try signing up again.`);
-      } else {
-        setError(`Cleanup failed: ${result.message}`);
-      }
-    } catch (err: any) {
-      setError(`Cleanup error: ${err.message}`);
-    } finally {
-      setIsCleaningUp(false);
-    }
-  };
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setErrorType(null);
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+    // Enhanced validation
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('Please enter both your first and last name');
+      setErrorType('validation');
+      setIsLoading(false);
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      setError('Please enter a valid email address');
+      setErrorType('validation');
       setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters long');
+      setErrorType('validation');
       setIsLoading(false);
       return;
     }
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError('First name and last name are required');
+    // Password strength validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      setErrorType('validation');
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match. Please make sure both password fields are identical');
+      setErrorType('validation');
       setIsLoading(false);
       return;
     }
@@ -90,7 +91,31 @@ const Signup = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
+        // Handle specific error cases
+        switch (response.status) {
+          case 400:
+            if (data.message?.includes('already registered') || data.message?.includes('already exist')) {
+              setError('An account with this email address already exists. Please sign in instead.');
+              setErrorType('auth');
+            } else {
+              setError(data.message || 'Please check your information and try again.');
+              setErrorType('validation');
+            }
+            break;
+          case 429:
+            setError('Too many signup attempts. Please wait a few minutes before trying again.');
+            setErrorType('auth');
+            break;
+          case 500:
+            setError('We\'re experiencing technical difficulties. Please try again in a few moments.');
+            setErrorType('network');
+            break;
+          default:
+            setError(data.message || 'An unexpected error occurred. Please try again.');
+            setErrorType('network');
+        }
+        setIsLoading(false);
+        return;
       }
 
       // Success! User created in backend, now redirect to OTP verification
@@ -105,10 +130,17 @@ const Signup = () => {
       });
     } catch (err: any) {
       console.error('Signup error:', err);
-      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-        setError('Backend server is not running. Please start the backend server.');
+
+      // Handle network errors and other exceptions
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Unable to connect to our servers. Please check your internet connection and try again.');
+        setErrorType('network');
+      } else if (err.message?.includes('timeout')) {
+        setError('The request timed out. Please check your connection and try again.');
+        setErrorType('network');
       } else {
-        setError(err.message || 'Signup failed. Please try again.');
+        setError('An unexpected error occurred. Please try again or contact support if the problem persists.');
+        setErrorType('network');
       }
     } finally {
       setIsLoading(false);
@@ -138,38 +170,27 @@ const Signup = () => {
         {/* Signup Form */}
         <div className="bg-[#121212] rounded-2xl p-8 shadow-2xl border border-[#282828]">
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-              {error}
-
-              {/* Show login suggestion for existing users */}
-              {(error.includes('already registered') || error.includes('already exist')) && (
-                <div className="mt-3 pt-3 border-t border-red-500/30">
-                  <p className="text-xs text-gray-300 mb-2">
-                    Already have an account?{' '}
-                    <Link to="/login" className="text-[#1db954] hover:text-[#1ed760] font-medium transition-colors">
-                      Sign in here
-                    </Link>
-                  </p>
-                </div>
-              )}
-
-              {/* Only show cleanup button when explicitly enabled (for developers only) */}
-              {(error.includes('already registered') || error.includes('already exist')) &&
-               import.meta.env.VITE_SHOW_DEV_TOOLS === 'true' && (
-                <div className="mt-3 pt-3 border-t border-red-500/30">
-                  <p className="text-xs text-gray-400 mb-2">
-                    🛠️ Development: If you deleted this user manually, click below to cleanup both systems:
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleCleanupUser}
-                    disabled={isCleaningUp}
-                    className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white text-xs rounded transition-colors"
-                  >
-                    {isCleaningUp ? 'Cleaning up...' : 'Cleanup User Data'}
-                  </button>
-                </div>
-              )}
+            <div className={`mb-6 p-4 rounded-lg border flex items-start space-x-3 ${
+              errorType === 'validation'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                : errorType === 'network'
+                ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium leading-relaxed">{error}</p>
+                {errorType === 'auth' && error.includes('already exists') && (
+                  <div className="mt-3 pt-3 border-t border-current/20">
+                    <p className="text-xs opacity-80">
+                      Already have an account?{' '}
+                      <Link to="/login" className="text-[#1db954] hover:text-[#1ed760] font-medium transition-colors">
+                        Sign in here
+                      </Link>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -232,34 +253,55 @@ const Signup = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                placeholder="Create a password (min 8 characters)"
-                required
-                minLength={8}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 pr-12 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
+                  placeholder="Create a password (min 8 characters)"
+                  required
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Must be at least 8 characters with uppercase, lowercase, and number
+              </p>
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
                 Confirm Password
               </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                placeholder="Confirm your password"
-                required
-                minLength={8}
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 pr-12 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
+                  placeholder="Confirm your password"
+                  required
+                  minLength={8}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             {/* Sign Up Button */}

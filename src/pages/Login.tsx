@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCustomAuth } from '../contexts/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const { login } = useCustomAuth();
@@ -10,14 +11,28 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorType, setErrorType] = useState<'validation' | 'auth' | 'network' | 'verification' | null>(null);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setErrorType(null);
 
+    // Enhanced validation
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password');
+      setErrorType('validation');
+      setIsLoading(false);
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address');
+      setErrorType('validation');
       setIsLoading(false);
       return;
     }
@@ -33,19 +48,58 @@ const Login = () => {
           password,
         }),
       });
+
       const data = await response.json();
+
       if (!response.ok) {
-        // Check if user needs email verification
+        // Handle different types of errors with specific messages
         if (data.requiresVerification) {
-          navigate('/verify-otp', { 
-            state: { 
-              userData: { email: data.email } 
+          setError('Please verify your email address before signing in. Check your inbox for the verification link.');
+          setErrorType('verification');
+          navigate('/verify-otp', {
+            state: {
+              userData: { email: data.email }
             },
-            replace: true 
+            replace: true
           });
           return;
         }
-        throw new Error(data.message || 'Login failed');
+
+        // Handle specific error cases
+        switch (response.status) {
+          case 401:
+            if (data.code === 'USER_NOT_FOUND') {
+              setError('No account found with this email address. Please check your email or sign up for a new account.');
+              setErrorType('auth');
+            } else if (data.code === 'INVALID_PASSWORD') {
+              setError('The password you entered is incorrect. Please try again or reset your password.');
+              setErrorType('auth');
+            } else if (data.message?.includes('deactivated')) {
+              setError('Your account has been deactivated. Please contact support for assistance.');
+              setErrorType('auth');
+            } else {
+              setError(data.message || 'Authentication failed. Please check your credentials and try again.');
+              setErrorType('auth');
+            }
+            break;
+          case 400:
+            setError('Please check your input and try again.');
+            setErrorType('validation');
+            break;
+          case 429:
+            setError('Too many login attempts. Please wait a few minutes before trying again.');
+            setErrorType('auth');
+            break;
+          case 500:
+            setError('We\'re experiencing technical difficulties. Please try again in a few moments.');
+            setErrorType('network');
+            break;
+          default:
+            setError(data.message || 'An unexpected error occurred. Please try again.');
+            setErrorType('network');
+        }
+        setIsLoading(false);
+        return;
       }
       // Use custom auth context to store user data
       login(data.data.user, data.data.tokens);
@@ -64,7 +118,18 @@ const Login = () => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please check your credentials.');
+
+      // Handle network errors and other exceptions
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Unable to connect to our servers. Please check your internet connection and try again.');
+        setErrorType('network');
+      } else if (err.message?.includes('timeout')) {
+        setError('The request timed out. Please check your connection and try again.');
+        setErrorType('network');
+      } else {
+        setError('An unexpected error occurred. Please try again or contact support if the problem persists.');
+        setErrorType('network');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -88,8 +153,55 @@ const Login = () => {
         {/* Login Form */}
         <div className="bg-[#121212] rounded-2xl p-8 shadow-2xl border border-[#282828]">
           {error && (
-            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-              {error}
+            <div className={`mb-6 p-4 rounded-lg border flex items-start space-x-3 ${
+              errorType === 'validation'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                : errorType === 'verification'
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                : errorType === 'network'
+                ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium leading-relaxed">{error}</p>
+                {errorType === 'auth' && (
+                  <div className="mt-3 pt-3 border-t border-current/20">
+                    {error.includes('No account found') ? (
+                      <p className="text-xs opacity-80">
+                        Don't have an account?{' '}
+                        <Link to="/signup" className="text-[#1db954] hover:text-[#1ed760] font-medium transition-colors">
+                          Sign up here
+                        </Link>
+                      </p>
+                    ) : (
+                      <p className="text-xs opacity-80">
+                        Forgot your password?{' '}
+                        <Link to="/forgot-password" className="text-[#1db954] hover:text-[#1ed760] font-medium transition-colors">
+                          Reset it here
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {errorType === 'verification' && (
+                  <div className="mt-3 pt-3 border-t border-current/20">
+                    <p className="text-xs opacity-80">
+                      Didn't receive the email?{' '}
+                      <button
+                        type="button"
+                        className="text-[#1db954] hover:text-[#1ed760] font-medium transition-colors underline"
+                        onClick={() => {
+                          // Add resend verification logic here
+                          console.log('Resend verification email');
+                        }}
+                      >
+                        Resend verification
+                      </button>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <form onSubmit={handleEmailLogin} className="space-y-6">
@@ -114,15 +226,24 @@ const Login = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
-                placeholder="Enter your password"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             {/* Forgot Password Link */}
             <div className="text-right">

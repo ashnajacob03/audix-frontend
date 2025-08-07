@@ -14,28 +14,28 @@ const SearchPage = () => {
       _id: "1",
       title: "Blinding Lights",
       artist: "The Weeknd",
-      imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=BL",
+      imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
       duration: 200
     },
     {
       _id: "2",
       title: "Watermelon Sugar",
       artist: "Harry Styles",
-      imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=WS",
+      imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center",
       duration: 174
     },
     {
       _id: "3",
       title: "Levitating",
       artist: "Dua Lipa",
-      imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=LV",
+      imageUrl: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop&crop=center",
       duration: 203
     },
     {
       _id: "4",
       title: "Good 4 U",
       artist: "Olivia Rodrigo",
-      imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=G4U",
+      imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
       duration: 178
     }
   ];

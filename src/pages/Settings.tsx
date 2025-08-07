@@ -224,11 +224,14 @@ const Settings = () => {
                     <div className="flex items-center gap-6">
                       <div className="relative">
                         <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden">
-                          {profileImage || user?.imageUrl ? (
+                          {profileImage || user?.picture ? (
                             <img
-                              src={profileImage || user?.imageUrl}
+                              src={profileImage || user?.picture}
                               alt="Profile"
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <User className="w-12 h-12 text-white" />

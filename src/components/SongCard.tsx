@@ -1,5 +1,6 @@
 import { Play, Pause } from "lucide-react";
 import { useState } from "react";
+import FallbackImage from "./FallbackImage";
 
 interface Song {
   _id: string;
@@ -32,10 +33,11 @@ const SongCard = ({ song }: SongCardProps) => {
     >
       {/* Song Image */}
       <div className="relative mb-4">
-        <img
+        <FallbackImage
           src={song.imageUrl}
           alt={song.title}
           className="w-full aspect-square object-cover rounded-md shadow-lg"
+          fallbackSeed={song._id}
         />
         
         {/* Play Button Overlay */}

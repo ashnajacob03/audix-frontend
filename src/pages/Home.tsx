@@ -51,35 +51,35 @@ const featuredSongs = [
 		_id: "1",
 		title: "Blinding Lights",
 		artist: "The Weeknd",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=BL",
+		imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
 		duration: 200
 	},
 	{
 		_id: "2",
 		title: "Watermelon Sugar",
 		artist: "Harry Styles",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=WS",
+		imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center",
 		duration: 174
 	},
 	{
 		_id: "3",
 		title: "Levitating",
 		artist: "Dua Lipa",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=LV",
+		imageUrl: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop&crop=center",
 		duration: 203
 	},
 	{
 		_id: "4",
 		title: "Good 4 U",
 		artist: "Olivia Rodrigo",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=G4U",
+		imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
 		duration: 178
 	},
 	{
 		_id: "5",
 		title: "Stay",
 		artist: "The Kid LAROI, Justin Bieber",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=ST",
+		imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center",
 		duration: 141
 	}
 ];
@@ -89,21 +89,21 @@ const madeForYouSongs = [
 		_id: "6",
 		title: "Heat Waves",
 		artist: "Glass Animals",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=HW",
+		imageUrl: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop&crop=center",
 		duration: 238
 	},
 	{
 		_id: "7",
 		title: "Industry Baby",
 		artist: "Lil Nas X, Jack Harlow",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=IB",
+		imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
 		duration: 212
 	},
 	{
 		_id: "8",
 		title: "Bad Habits",
 		artist: "Ed Sheeran",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=BH",
+		imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center",
 		duration: 231
 	}
 ];
@@ -113,15 +113,22 @@ const trendingSongs = [
 		_id: "9",
 		title: "As It Was",
 		artist: "Harry Styles",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=AIW",
+		imageUrl: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop&crop=center",
 		duration: 167
 	},
 	{
 		_id: "10",
 		title: "About Damn Time",
 		artist: "Lizzo",
-		imageUrl: "https://via.placeholder.com/200x200/1db954/ffffff?text=ADT",
+		imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
 		duration: 191
+	},
+	{
+		_id: "11",
+		title: "Test Fallback Image",
+		artist: "Test Artist",
+		imageUrl: "https://broken-url-that-will-fail.com/image.jpg",
+		duration: 180
 	}
 ];
 
