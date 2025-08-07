@@ -64,6 +64,16 @@ interface Conversation {
   updatedAt: string;
 }
 
+interface FollowedUser {
+  id: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  online?: boolean;
+  lastSeen?: string;
+}
+
 const Messages = () => {
   const { user } = useCustomAuth();
   const { socket, isConnected, onlineUsers, typingUsers } = useSocket();
@@ -77,6 +87,8 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
+  const [followedUsers, setFollowedUsers] = useState<FollowedUser[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -314,12 +326,57 @@ const Messages = () => {
     }, 1000);
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.participant.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Fetch followed users
+  useEffect(() => {
+    const fetchFollowedUsers = async () => {
+      if (!user) return;
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`${API_BASE_URL}/user/all`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        const data = await response.json();
+        if (data.success) {
+          const followed = data.data.users.filter((u: any) => u.isFollowing).map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            avatar: u.picture,
+            online: u.isOnline,
+            lastSeen: u.lastSeen,
+          }));
+          setFollowedUsers(followed);
+        }
+      } catch (error) {
+        console.error('Failed to fetch followed users:', error);
+      }
+    };
+    fetchFollowedUsers();
+  }, [user]);
+
+  // Merge conversations and followed users for sidebar
+  const sidebarUsers = followedUsers.map(fu => {
+    const conv = conversations.find(c => c.participant.id === fu.id);
+    return {
+      ...fu,
+      conversation: conv || null,
+      unreadCount: conv?.unreadCount || 0,
+      lastMessage: conv?.lastMessage || null,
+      lastMessageAt: conv?.lastMessageAt || null,
+    };
+  });
+
+  // Filter by search
+  const filteredSidebarUsers = sidebarUsers.filter(u =>
+    u.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const selectedConversation = conversations.find(conv => conv.participant.id === selectedChat);
-  const selectedFriend = selectedConversation?.participant;
+  const selectedFriend = selectedConversation?.participant || followedUsers.find(u => u.id === selectedChat) || null;
 
   // Check if user is typing
   const isUserTyping = selectedChat && typingUsers.has(selectedChat);
@@ -367,7 +424,7 @@ const Messages = () => {
           {/* Conversations List */}
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {filteredConversations.length === 0 ? (
+              {filteredSidebarUsers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <User className="w-12 h-12 text-zinc-600 mb-4" />
                   <h3 className="text-lg font-medium text-white mb-2">No conversations yet</h3>
@@ -376,33 +433,39 @@ const Messages = () => {
                   </p>
                 </div>
               ) : (
-                filteredConversations.map((conversation) => {
-                  const isOnline = onlineUsers.has(conversation.participant.id) && 
-                    onlineUsers.get(conversation.participant.id)?.online;
+                filteredSidebarUsers.map((user) => {
+                  const isOnline = onlineUsers.has(user.id) && 
+                    onlineUsers.get(user.id)?.online;
                   
                   return (
                     <div
-                      key={conversation.id}
+                      key={user.id}
                       onClick={() => {
-                        setSelectedChat(conversation.participant.id);
-                        navigate(`/messages?friendId=${conversation.participant.id}`);
+                        setSelectedChat(user.id);
+                        navigate(`/messages?friendId=${user.id}`);
                       }}
                       className={`p-3 rounded-lg cursor-pointer transition-colors mb-2 ${
-                        selectedChat === conversation.participant.id
+                        selectedChat === user.id
                           ? 'bg-green-500/20 border border-green-500/30'
                           : 'hover:bg-zinc-800/50'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative">
-                          <img
-                            src={conversation.participant.avatar || '/default-avatar.png'}
-                            alt={conversation.participant.name}
-                            className="w-12 h-12 rounded-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/default-avatar.png';
-                            }}
-                          />
+                          {user.avatar ? (
+                            <img
+                              src={user.avatar}
+                              alt={user.name}
+                              className="w-12 h-12 rounded-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/default-avatar.png';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-lg select-none">
+                              {user.firstName?.[0]?.toUpperCase() || ''}{user.lastName?.[0]?.toUpperCase() || ''}
+                            </div>
+                          )}
                           {isOnline && (
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
                           )}
@@ -410,10 +473,10 @@ const Messages = () => {
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-white truncate">{conversation.participant.name}</h3>
+                            <h3 className="font-medium text-white truncate">{user.name}</h3>
                             <span className="text-xs text-zinc-400">
-                              {conversation.lastMessage ? 
-                                new Date(conversation.lastMessage.timestamp).toLocaleTimeString([], { 
+                              {user.lastMessageAt ? 
+                                new Date(user.lastMessageAt).toLocaleTimeString([], { 
                                   hour: '2-digit', 
                                   minute: '2-digit' 
                                 }) : ''
@@ -422,8 +485,8 @@ const Messages = () => {
                           </div>
                           
                           <p className="text-sm text-zinc-400 truncate">
-                            {conversation.lastMessage ? 
-                              `${conversation.lastMessage.senderId === user?.id ? 'You: ' : ''}${conversation.lastMessage.content}` 
+                            {user.lastMessage ? 
+                              `${user.lastMessage.senderId === user?.id ? 'You: ' : ''}${user.lastMessage.content}` 
                               : 'No messages yet'
                             }
                           </p>
@@ -436,9 +499,9 @@ const Messages = () => {
                           )}
                         </div>
                         
-                        {conversation.unreadCount > 0 && (
+                        {user.unreadCount > 0 && (
                           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-xs text-white font-medium">{conversation.unreadCount}</span>
+                            <span className="text-xs text-white font-medium">{user.unreadCount}</span>
                           </div>
                         )}
                       </div>
@@ -459,15 +522,21 @@ const Messages = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <img
-                        src={selectedFriend.avatar || '/default-avatar.png'}
-                        alt={selectedFriend.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/default-avatar.png';
-                        }}
-                      />
-                      {(onlineUsers.has(selectedFriend.id) && onlineUsers.get(selectedFriend.id)?.online) && (
+                      {selectedFriend?.avatar ? (
+                        <img
+                          src={selectedFriend.avatar}
+                          alt={selectedFriend.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/default-avatar.png';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-base select-none">
+                          {selectedFriend?.firstName?.[0]?.toUpperCase() || ''}{selectedFriend?.lastName?.[0]?.toUpperCase() || ''}
+                        </div>
+                      )}
+                      {(onlineUsers.has(selectedFriend?.id) && onlineUsers.get(selectedFriend?.id)?.online) && (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
                       )}
                     </div>
