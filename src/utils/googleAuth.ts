@@ -107,7 +107,7 @@ export const handleGoogleSignIn = async (
           {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            width: 400,
           }
         );
       }
@@ -162,7 +162,7 @@ export const renderGoogleSignInButton = (
         {
           theme: options.theme || 'outline',
           size: options.size || 'large',
-          width: options.width || '100%',
+          width: options.width || 400, // Use numeric value instead of percentage
           text: options.text || 'signin_with',
         }
       );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { useSocket } from '@/contexts/SocketContext';
 import AudixTopbar from '@/components/AudixTopbar';
@@ -16,7 +16,8 @@ import {
   Paperclip,
   User,
   Music,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
@@ -32,6 +33,7 @@ interface Message {
   isRead: boolean;
   messageType: string;
   conversationId: string;
+  isOptimistic?: boolean; // Flag for optimistic updates
   replyTo?: {
     id: string;
     content: string;
@@ -91,7 +93,26 @@ const Messages = () => {
   const [friends, setFriends] = useState<FollowedUser[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Deduplicate conversations by participant (keep the most recent)
+  const dedupeConversationsByParticipant = (items: Conversation[]): Conversation[] => {
+    const map = new Map<string, Conversation>();
+    for (const conv of items) {
+      const key = conv.participant.id;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, conv);
+        continue;
+      }
+      const existingTime = new Date(existing.lastMessageAt || existing.updatedAt).getTime();
+      const currentTime = new Date(conv.lastMessageAt || conv.updatedAt).getTime();
+      if (currentTime > existingTime) map.set(key, conv);
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastMessageAt || b.updatedAt).getTime() - new Date(a.lastMessageAt || a.updatedAt).getTime()
+    );
+  };
 
   // Fetch conversations
   useEffect(() => {
@@ -108,8 +129,11 @@ const Messages = () => {
         });
         
         const data = await response.json();
+        console.log('🔍 Frontend received conversations data:', data);
         if (data.success) {
-          setConversations(data.data.conversations || []);
+          const deduped = dedupeConversationsByParticipant(data.data.conversations || []);
+          console.log('🔍 Deduped conversations:', deduped);
+          setConversations(deduped);
         }
       } catch (error) {
         console.error('Failed to fetch conversations:', error);
@@ -165,16 +189,23 @@ const Messages = () => {
 
     const handleNewMessage = (message: Message) => {
       if (message.conversationId === getConversationId(user?.id || '', selectedChat || '')) {
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => {
+          // Check if message already exists (to avoid duplicates)
+          const exists = prev.some(msg => msg.id === message.id);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, message];
+        });
         scrollToBottom();
       }
       
       // Update conversations list
       setConversations(prev => {
         const updated = [...prev];
-        const convIndex = updated.findIndex(conv => 
-          conv.participant.id === message.senderId || conv.participant.id === message.receiverId
-        );
+        const currentUserId = user?.id || '';
+        const otherUserId = message.senderId === currentUserId ? message.receiverId : message.senderId;
+        const convIndex = updated.findIndex(conv => conv.participant.id === otherUserId);
         
         if (convIndex !== -1) {
           updated[convIndex].lastMessage = {
@@ -186,21 +217,108 @@ const Messages = () => {
             isRead: message.isRead
           };
           updated[convIndex].lastMessageAt = message.timestamp;
-          
-          // Move to top
-          const conv = updated.splice(convIndex, 1)[0];
-          updated.unshift(conv);
+        } else {
+          // Create minimal conversation if none exists yet
+          const friend = friends.find(f => f.id === otherUserId);
+          const displayName = friend?.name || message.senderName || 'User';
+          updated.unshift({
+            id: message.conversationId,
+            conversationId: message.conversationId,
+            participant: {
+              id: otherUserId,
+              name: displayName,
+              firstName: friend?.firstName || displayName.split(' ')[0] || '',
+              lastName: friend?.lastName || displayName.split(' ').slice(1).join(' ') || '',
+              avatar: friend?.avatar || '',
+              online: !!friend?.online,
+              lastSeen: friend?.lastSeen || ''
+            },
+            lastMessage: {
+              id: message.id,
+              content: message.content,
+              sender: message.senderName,
+              senderId: message.senderId,
+              timestamp: message.timestamp,
+              isRead: message.isRead
+            },
+            unreadCount: 0,
+            lastMessageAt: message.timestamp,
+            updatedAt: message.timestamp
+          });
         }
-        
-        return updated;
+
+        return dedupeConversationsByParticipant(updated);
       });
     };
 
     const handleMessageSent = (message: Message) => {
       if (message.conversationId === getConversationId(user?.id || '', selectedChat || '')) {
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => {
+          // Check if we have an optimistic message that should be replaced
+          const optimisticIndex = prev.findIndex(msg => 
+            msg.isOptimistic && 
+            msg.content === message.content && 
+            msg.senderId === message.senderId
+          );
+          
+          if (optimisticIndex !== -1) {
+            // Replace optimistic message with real message
+            const updated = [...prev];
+            updated[optimisticIndex] = { ...message, isOptimistic: false };
+            return updated;
+          } else {
+            // Add new message if no optimistic message found
+            return [...prev, message];
+          }
+        });
         scrollToBottom();
       }
+
+      // Update conversations list for the sender as well
+      setConversations(prev => {
+        const updated = [...prev];
+        const convIndex = updated.findIndex(conv => conv.participant.id === message.receiverId);
+
+        if (convIndex !== -1) {
+          updated[convIndex].lastMessage = {
+            id: message.id,
+            content: message.content,
+            sender: message.senderName,
+            senderId: message.senderId,
+            timestamp: message.timestamp,
+            isRead: message.isRead
+          };
+          updated[convIndex].lastMessageAt = message.timestamp;
+        } else {
+          const friend = friends.find(f => f.id === message.receiverId);
+          const displayName = friend?.name || message.receiverName || 'User';
+          updated.unshift({
+            id: message.conversationId,
+            conversationId: message.conversationId,
+            participant: {
+              id: friend?.id || message.receiverId,
+              name: displayName,
+              firstName: friend?.firstName || displayName.split(' ')[0] || '',
+              lastName: friend?.lastName || displayName.split(' ').slice(1).join(' ') || '',
+              avatar: friend?.avatar || '',
+              online: !!friend?.online,
+              lastSeen: friend?.lastSeen || ''
+            },
+            lastMessage: {
+              id: message.id,
+              content: message.content,
+              sender: message.senderName,
+              senderId: message.senderId,
+              timestamp: message.timestamp,
+              isRead: message.isRead
+            },
+            unreadCount: 0,
+            lastMessageAt: message.timestamp,
+            updatedAt: message.timestamp
+          });
+        }
+        return dedupeConversationsByParticipant(updated);
+      });
     };
 
     const handleMessagesRead = (data: { readBy: string; conversationId: string }) => {
@@ -209,16 +327,27 @@ const Messages = () => {
           msg.senderId === user?.id ? { ...msg, isRead: true } : msg
         ));
       }
+      
+      // Update conversations to reset unread count for the conversation that was read
+      setConversations(prev => prev.map(conv => 
+        conv.conversationId === data.conversationId 
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      ));
     };
 
-    window.addEventListener('new_message', (e: any) => handleNewMessage(e.detail));
-    window.addEventListener('message_sent', (e: any) => handleMessageSent(e.detail));
-    window.addEventListener('messages_read', (e: any) => handleMessagesRead(e.detail));
+    const newMessageListener = (e: any) => handleNewMessage(e.detail);
+    const messageSentListener = (e: any) => handleMessageSent(e.detail);
+    const messagesReadListener = (e: any) => handleMessagesRead(e.detail);
+
+    window.addEventListener('new_message', newMessageListener);
+    window.addEventListener('message_sent', messageSentListener);
+    window.addEventListener('messages_read', messagesReadListener);
 
     return () => {
-      window.removeEventListener('new_message', (e: any) => handleNewMessage(e.detail));
-      window.removeEventListener('message_sent', (e: any) => handleMessageSent(e.detail));
-      window.removeEventListener('messages_read', (e: any) => handleMessagesRead(e.detail));
+      window.removeEventListener('new_message', newMessageListener);
+      window.removeEventListener('message_sent', messageSentListener);
+      window.removeEventListener('messages_read', messagesReadListener);
     };
   }, [socket, selectedChat, user]);
 
@@ -247,6 +376,13 @@ const Messages = () => {
           'Content-Type': 'application/json',
         },
       });
+      
+      // Update local conversations state to reflect unread count reset
+      setConversations(prev => prev.map(conv => 
+        conv.participant.id === userId 
+          ? { ...conv, unreadCount: 0 }
+          : conv
+      ));
     } catch (error) {
       console.error('Failed to mark messages as read:', error);
     }
@@ -255,6 +391,30 @@ const Messages = () => {
   // Send message
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChat) return;
+    
+    const messageContent = newMessage.trim();
+    const tempMessageId = `temp_${Date.now()}`;
+    
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: tempMessageId,
+      content: messageContent,
+      senderId: user?.id || '',
+      senderName: user?.firstName + ' ' + user?.lastName || '',
+      receiverId: selectedChat,
+      receiverName: selectedFriend?.name || '',
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      messageType: 'text',
+      conversationId: getConversationId(user?.id || '', selectedChat),
+      isOptimistic: true // Flag to identify optimistic messages
+    };
+    
+    // Add optimistic message to UI immediately
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
+    stopTyping();
+    scrollToBottom();
     
     try {
       const token = localStorage.getItem('accessToken');
@@ -266,16 +426,29 @@ const Messages = () => {
         },
         body: JSON.stringify({
           receiverId: selectedChat,
-          content: newMessage.trim(),
+          content: messageContent,
           messageType: 'text'
         }),
       });
       
       if (response.ok) {
-        setNewMessage('');
-        stopTyping();
+        const data = await response.json();
+        const realMessage = data.data;
+        
+        // Replace optimistic message with real message
+        setMessages(prev => prev.map(msg => 
+          msg.id === tempMessageId ? { ...realMessage, isOptimistic: false } : msg
+        ));
+      } else {
+        // Remove optimistic message if failed
+        setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+        setNewMessage(messageContent); // Restore the message content
+        console.error('Failed to send message');
       }
     } catch (error) {
+      // Remove optimistic message if failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempMessageId));
+      setNewMessage(messageContent); // Restore the message content
       console.error('Failed to send message:', error);
     }
   };
@@ -316,14 +489,13 @@ const Messages = () => {
     }
     
     // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     
     // Set new timeout to stop typing
     typingTimeoutRef.current = setTimeout(() => {
       stopTyping();
-    }, 1000);
+      typingTimeoutRef.current = null;
+    }, 800);
   };
 
   // Fetch friends
@@ -361,21 +533,61 @@ const Messages = () => {
   }, [user]);
 
   // Merge conversations and friends for sidebar
-  const sidebarUsers = friends.map(friend => {
-    const conv = conversations.find(c => c.participant.id === friend.id);
-    return {
-      ...friend,
-      conversation: conv || null,
-      unreadCount: conv?.unreadCount || 0,
-      lastMessage: conv?.lastMessage || null,
-      lastMessageAt: conv?.lastMessageAt || null,
-    };
-  });
+  // Prioritize conversations with messages, then friends without conversations
+  const sidebarUsers = [
+    // First, add ALL conversations (sorted by last message time)
+    ...conversations
+      .filter(conv => conv.participant.id !== user?.id) // Exclude current user
+      .sort((a, b) => new Date(b.lastMessageAt || b.updatedAt).getTime() - new Date(a.lastMessageAt || a.updatedAt).getTime())
+      .map(conv => {
+        console.log('🔍 Processing conversation for sidebar:', {
+          id: conv.id,
+          participant: conv.participant.name,
+          lastMessage: conv.lastMessage,
+          hasConversation: true
+        });
+        return {
+          id: conv.participant.id,
+          name: conv.participant.name,
+          firstName: conv.participant.firstName,
+          lastName: conv.participant.lastName,
+          avatar: conv.participant.avatar,
+          online: conv.participant.online,
+          lastSeen: conv.participant.lastSeen,
+          conversation: conv,
+          unreadCount: conv.unreadCount,
+          lastMessage: conv.lastMessage,
+          lastMessageAt: conv.lastMessageAt,
+          hasConversation: true
+        };
+      }),
+    // Then add friends without conversations (exclude current user)
+    ...friends
+      .filter(friend => friend.id !== user?.id && !conversations.some(conv => conv.participant.id === friend.id))
+      .map(friend => {
+        console.log('🔍 Processing friend for sidebar:', {
+          id: friend.id,
+          name: friend.name,
+          hasConversation: false
+        });
+        return {
+          ...friend,
+          conversation: null,
+          unreadCount: 0,
+          lastMessage: null,
+          lastMessageAt: null,
+          hasConversation: false
+        };
+      })
+  ];
 
-  // Filter by search
-  const filteredSidebarUsers = sidebarUsers.filter(u =>
-    u.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  console.log('🔍 Final sidebarUsers array:', sidebarUsers);
+
+  // Filter by search (memoized)
+  const filteredSidebarUsers = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return sidebarUsers.filter(u => u.name.toLowerCase().includes(q));
+  }, [sidebarUsers, searchQuery]);
 
   const selectedConversation = conversations.find(conv => conv.participant.id === selectedChat);
   const selectedFriend = selectedConversation?.participant || friends.find(u => u.id === selectedChat) || null;
@@ -410,7 +622,7 @@ const Messages = () => {
                   Messages
                 </h2>
                 <p className="text-sm text-zinc-400 mt-1">
-                  {friends.length} friend{friends.length !== 1 ? 's' : ''} available
+                  {conversations.filter(conv => conv.lastMessage).length} conversation{conversations.filter(conv => conv.lastMessage).length !== 1 ? 's' : ''} • {friends.length} friend{friends.length !== 1 ? 's' : ''} available
                 </p>
               </div>
             </div>
@@ -445,38 +657,47 @@ const Messages = () => {
                   </p>
                 </div>
               ) : (
-                filteredSidebarUsers.map((user) => {
-                  const isOnline = onlineUsers.has(user.id) && 
-                    onlineUsers.get(user.id)?.online;
+                filteredSidebarUsers.map((sidebarUser) => {
+                  const isOnline = onlineUsers.has(sidebarUser.id) && 
+                    onlineUsers.get(sidebarUser.id)?.online;
                   
                   return (
                     <div
-                      key={user.id}
+                      key={sidebarUser.id}
                       onClick={() => {
-                        setSelectedChat(user.id);
-                        navigate(`/messages?friendId=${user.id}`);
+                        setSelectedChat(sidebarUser.id);
+                        navigate(`/messages?friendId=${sidebarUser.id}`);
+                        
+                        // Immediately reset unread count in UI for better UX
+                        if (sidebarUser.unreadCount > 0) {
+                          setConversations(prev => prev.map(conv => 
+                            conv.participant.id === sidebarUser.id 
+                              ? { ...conv, unreadCount: 0 }
+                              : conv
+                          ));
+                        }
                       }}
                       className={`p-3 rounded-lg cursor-pointer transition-colors mb-2 ${
-                        selectedChat === user.id
+                        selectedChat === sidebarUser.id
                           ? 'bg-green-500/20 border border-green-500/30'
                           : 'hover:bg-zinc-800/50'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <UserAvatar
-                          src={user.avatar}
-                          firstName={user.firstName}
-                          lastName={user.lastName}
+                          src={sidebarUser.avatar}
+                          firstName={sidebarUser.firstName}
+                          lastName={sidebarUser.lastName}
                           size="md"
                           showOnlineStatus={isOnline}
                         />
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-white truncate">{user.name}</h3>
+                            <h3 className="font-medium text-white truncate">{sidebarUser.name}</h3>
                             <span className="text-xs text-zinc-400">
-                              {user.lastMessageAt ? 
-                                new Date(user.lastMessageAt).toLocaleTimeString([], { 
+                              {sidebarUser.lastMessageAt ? 
+                                new Date(sidebarUser.lastMessageAt).toLocaleTimeString([], { 
                                   hour: '2-digit', 
                                   minute: '2-digit' 
                                 }) : ''
@@ -485,10 +706,25 @@ const Messages = () => {
                           </div>
                           
                           <p className="text-sm text-zinc-400 truncate">
-                            {user.lastMessage ? 
-                              `${user.lastMessage.senderId === user?.id ? 'You: ' : ''}${user.lastMessage.content}` 
-                              : 'No messages yet'
-                            }
+                            {(() => {
+                              console.log('🔍 Rendering message preview for:', sidebarUser.name, {
+                                lastMessage: sidebarUser.lastMessage,
+                                hasConversation: sidebarUser.hasConversation,
+                                conversation: sidebarUser.conversation
+                              });
+                              
+                              if (sidebarUser.lastMessage) {
+                                const preview = `${sidebarUser.lastMessage.senderId?.toString() === user?.id ? 'You: ' : ''}${sidebarUser.lastMessage.content}`;
+                                console.log('🔍 Message preview:', preview);
+                                return preview;
+                              } else if (sidebarUser.hasConversation) {
+                                console.log('🔍 Has conversation but no last message');
+                                return 'Start a conversation';
+                              } else {
+                                console.log('🔍 No conversation');
+                                return 'No messages yet';
+                              }
+                            })()}
                           </p>
                           
                           {isOnline && (
@@ -499,9 +735,9 @@ const Messages = () => {
                           )}
                         </div>
                         
-                        {user.unreadCount > 0 && (
+                        {sidebarUser.unreadCount > 0 && (
                           <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                            <span className="text-xs text-white font-medium">{user.unreadCount}</span>
+                            <span className="text-xs text-white font-medium">{sidebarUser.unreadCount}</span>
                           </div>
                         )}
                       </div>
@@ -600,7 +836,9 @@ const Messages = () => {
                             <div
                               className={`px-4 py-2 ${message.replyTo ? 'rounded-b-2xl rounded-tr-2xl' : 'rounded-2xl'} ${
                                 message.senderId === user?.id
-                                  ? 'bg-green-500 text-white'
+                                  ? message.isOptimistic 
+                                    ? 'bg-green-400 text-white opacity-75' 
+                                    : 'bg-green-500 text-white'
                                   : 'bg-zinc-700 text-white'
                               }`}
                             >
@@ -616,7 +854,11 @@ const Messages = () => {
                                 </span>
                                 {message.senderId === user?.id && (
                                   <span className="ml-2">
-                                    {message.isRead ? '✓✓' : '✓'}
+                                    {message.isOptimistic ? (
+                                      <Loader2 className="w-3 h-3 animate-spin text-yellow-300" />
+                                    ) : (
+                                      <span>{message.isRead ? '✓✓' : '✓'}</span>
+                                    )}
                                   </span>
                                 )}
                               </div>

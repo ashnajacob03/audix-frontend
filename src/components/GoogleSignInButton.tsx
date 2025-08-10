@@ -7,7 +7,7 @@ interface GoogleSignInButtonProps {
   text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
   theme?: 'outline' | 'filled_blue' | 'filled_black';
   size?: 'large' | 'medium' | 'small';
-  width?: string;
+  width?: number;
   onSuccess?: () => void;
   onError?: (error: string) => void;
 }
@@ -16,7 +16,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   text = 'signin_with',
   theme = 'outline',
   size = 'large',
-  width = '100%',
+  width = 400,
   onSuccess,
   onError
 }) => {

@@ -203,6 +203,12 @@ class ApiService {
     });
   }
 
+  async cancelFollowRequest(userId) {
+    return this.request(`/user/follow/${userId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
   // Utility methods
   isAuthenticated() {
     return !!localStorage.getItem('accessToken');

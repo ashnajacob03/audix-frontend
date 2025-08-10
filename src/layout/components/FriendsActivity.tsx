@@ -258,6 +258,46 @@ const FriendsActivity = () => {
 		}
 	};
 
+	// Cancel follow request
+	const handleCancelRequest = async (userId: string) => {
+		if (processingRequests.has(userId)) return;
+
+		try {
+			setProcessingRequests(prev => new Set(prev).add(userId));
+			const token = localStorage.getItem('accessToken');
+
+			const response = await fetch(`${API_BASE_URL}/user/follow/${userId}/cancel`, {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/json',
+				},
+			});
+
+			const data = await response.json();
+			if (data.success) {
+				setRequestSentUsers(prev => {
+					const newSet = new Set(prev);
+					newSet.delete(userId);
+					return newSet;
+				});
+				toast.success('Follow request cancelled');
+				fetchUsers(); // <-- refetch
+			} else {
+				toast.error(data.message || 'Failed to cancel follow request');
+			}
+		} catch (error) {
+			console.error('Error cancelling follow request:', error);
+			toast.error('Failed to cancel follow request');
+		} finally {
+			setProcessingRequests(prev => {
+				const newSet = new Set(prev);
+				newSet.delete(userId);
+				return newSet;
+			});
+		}
+	};
+
 	// Unfollow user
 	const handleUnfollow = async (userId: string) => {
 		if (processingRequests.has(userId)) return;
@@ -340,7 +380,7 @@ const FriendsActivity = () => {
 			</div>
 
 			<ScrollArea className='flex-1'>
-				<div className='space-y-3'>
+				<div className='space-y-6'>
 					{isLoading ? (
 						// Loading skeleton
 						Array.from({ length: 5 }).map((_, index) => (
@@ -362,112 +402,280 @@ const FriendsActivity = () => {
 							</p>
 						</div>
 					) : (
-						users.filter(user => user.email !== ADMIN_EMAIL).map((user) => (
-							<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
-								{/* Avatar */}
-								<div className='relative flex-shrink-0'>
-									<UserAvatar 
-										size="md" 
-										src={user.picture} 
-										firstName={user.firstName} 
-										lastName={user.lastName}
-										showOnlineStatus={user.isOnline}
-									/>
-								</div>
-
-								{/* User info and follow button */}
-								<div className='flex-1 min-w-0'>
-									<div className='flex items-center gap-2 mb-1'>
-										<p className='text-white text-sm font-medium truncate'>
-											{user.firstName} {user.lastName}
-										</p>
-										{user.accountType === 'premium' && (
-											<Crown className='size-3 text-yellow-500' />
-										)}
-									</div>
-
-									{/* Follow button under name */}
-									<div className='mb-2'>
-										{user.friendStatus === 'friends' ? (
-											<div className='flex gap-2'>
-												<button
-													onClick={() => handleUnfollow(user.id)}
-													className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-800 text-white border border-zinc-600 hover:bg-red-600 hover:border-red-600 hover:text-white group'
-												>
-													<UserCheck className='size-3 group-hover:hidden' />
-													<UserX className='size-3 hidden group-hover:block' />
-													<span className='group-hover:hidden'>Following</span>
-													<span className='hidden group-hover:block'>Unfollow</span>
-												</button>
-												<button
-													onClick={() => navigate(`/messages?friendId=${user.id}`)}
-													className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105 shadow-lg hover:shadow-green-500/25'
-												>
-													<Send className='size-3' />
-													<span>Message</span>
-												</button>
+						<>
+							{/* Following People Section */}
+							{(() => {
+								const followingUsers = users.filter(user => 
+									user.email !== ADMIN_EMAIL && user.friendStatus === 'friends'
+								);
+								if (followingUsers.length > 0) {
+									return (
+										<div>
+											<div className='flex items-center gap-2 mb-3'>
+												<UserCheck className='size-4 text-green-500' />
+												<h3 className='text-sm font-medium text-green-500'>Following People</h3>
+												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+													{followingUsers.length}
+												</span>
 											</div>
-										) : user.friendStatus === 'request_sent' ? (
-											<button
-												className='px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-orange-600 text-white cursor-not-allowed opacity-70'
-												disabled
-											>
-												<ClockIcon className='size-3' />
-												<span>Requested</span>
-											</button>
-										) : user.friendStatus === 'request_received' ? (
-											<div className='flex gap-2'>
-												<button
-													onClick={() => handleAcceptRequest(user.id)}
-													className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
-													disabled={processingRequests.has(user.id)}
-												>
-													<UserCheck className='size-3' />
-													<span>Accept</span>
-												</button>
-												<button
-													onClick={() => handleDeclineRequest(user.id)}
-													className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
-													disabled={processingRequests.has(user.id)}
-												>
-													<UserX className='size-3' />
-													<span>Reject</span>
-												</button>
-											</div>
-										) : (
-											<button
-												onClick={() => handleFollowRequest(user.id)}
-												className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${
-													processingRequests.has(user.id)
-														? 'bg-zinc-700 text-white cursor-not-allowed opacity-70'
-														: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
-												}`}
-												disabled={processingRequests.has(user.id)}
-											>
-												<UserPlus className='size-3' />
-												<span>Follow</span>
-											</button>
-										)}
-									</div>
+											<div className='space-y-3'>
+												{followingUsers.map((user) => (
+													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+														{/* Avatar */}
+														<div className='relative flex-shrink-0'>
+															<UserAvatar 
+																size="md" 
+																src={user.picture} 
+																firstName={user.firstName} 
+																lastName={user.lastName}
+																showOnlineStatus={user.isOnline}
+															/>
+														</div>
 
-									<div className='flex items-center gap-2 text-xs text-zinc-400'>
-										<span className='truncate'>@{user.email.split('@')[0]}</span>
-										{user.followersCount > 0 && (
-											<>
-												<span>•</span>
-												<span>{user.followersCount} followers</span>
-											</>
-										)}
-									</div>
-									{user.lastSeen && (
-										<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
-											<Clock className='size-3' />
-											<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
+														{/* User info and follow button */}
+														<div className='flex-1 min-w-0'>
+															<div className='flex items-center gap-2 mb-1'>
+																<p className='text-white text-sm font-medium truncate'>
+																	{user.firstName} {user.lastName}
+																</p>
+																{user.accountType === 'premium' && (
+																	<Crown className='size-3 text-yellow-500' />
+																)}
+															</div>
+
+															{/* Follow button under name */}
+															<div className='mb-2'>
+																<div className='flex gap-2'>
+																	<button
+																		onClick={() => handleUnfollow(user.id)}
+																		className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-800 text-white border border-zinc-600 hover:bg-red-600 hover:border-red-600 hover:text-white group'
+																	>
+																		<UserCheck className='size-3 group-hover:hidden' />
+																		<UserX className='size-3 hidden group-hover:block' />
+																		<span className='group-hover:hidden'>Following</span>
+																		<span className='hidden group-hover:block'>Unfollow</span>
+																	</button>
+																	<button
+																		onClick={() => navigate(`/messages?friendId=${user.id}`)}
+																		className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105 shadow-lg hover:shadow-green-500/25'
+																	>
+																		<Send className='size-3' />
+																		<span>Message</span>
+																	</button>
+																</div>
+															</div>
+
+															<div className='flex items-center gap-2 text-xs text-zinc-400'>
+																<span className='truncate'>@{user.email.split('@')[0]}</span>
+																{user.followersCount > 0 && (
+																	<>
+																		<span>•</span>
+																		<span>{user.followersCount} followers</span>
+																	</>
+																)}
+															</div>
+															{user.lastSeen && (
+																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
+																	<Clock className='size-3' />
+																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
+																</div>
+															)}
+														</div>
+													</div>
+												))}
+											</div>
 										</div>
-									)}
-								</div>
-							</div>
-						))
+									);
+								}
+								return null;
+							})()}
+
+							{/* Requested People Section */}
+							{(() => {
+								const requestedUsers = users.filter(user => 
+									user.email !== ADMIN_EMAIL && user.friendStatus === 'request_sent'
+								);
+								if (requestedUsers.length > 0) {
+									return (
+										<div>
+											<div className='flex items-center gap-2 mb-3'>
+												<ClockIcon className='size-4 text-orange-500' />
+												<h3 className='text-sm font-medium text-orange-500'>Requested People</h3>
+												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+													{requestedUsers.length}
+												</span>
+											</div>
+											<div className='space-y-3'>
+												{requestedUsers.map((user) => (
+													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+														{/* Avatar */}
+														<div className='relative flex-shrink-0'>
+															<UserAvatar 
+																size="md" 
+																src={user.picture} 
+																firstName={user.firstName} 
+																lastName={user.lastName}
+																showOnlineStatus={user.isOnline}
+															/>
+														</div>
+
+														{/* User info and follow button */}
+														<div className='flex-1 min-w-0'>
+															<div className='flex items-center gap-2 mb-1'>
+																<p className='text-white text-sm font-medium truncate'>
+																	{user.firstName} {user.lastName}
+																</p>
+																{user.accountType === 'premium' && (
+																	<Crown className='size-3 text-yellow-500' />
+																)}
+															</div>
+
+															{/* Follow button under name */}
+															<div className='mb-2'>
+																<button
+																	onClick={() => handleCancelRequest(user.id)}
+																	className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all duration-200 ${
+																		processingRequests.has(user.id) 
+																			? 'bg-zinc-700 text-white cursor-not-allowed opacity-70' 
+																			: 'bg-orange-600 text-white hover:bg-red-600 hover:scale-105 group'
+																	}`}
+																	disabled={processingRequests.has(user.id)}
+																>
+																	<ClockIcon className='size-3 group-hover:hidden' />
+																	<UserX className='size-3 hidden group-hover:block' />
+																	<span className='group-hover:hidden'>Requested</span>
+																	<span className='hidden group-hover:block'>Cancel</span>
+																</button>
+															</div>
+
+															<div className='flex items-center gap-2 text-xs text-zinc-400'>
+																<span className='truncate'>@{user.email.split('@')[0]}</span>
+																{user.followersCount > 0 && (
+																	<>
+																		<span>•</span>
+																		<span>{user.followersCount} followers</span>
+																	</>
+																)}
+															</div>
+															{user.lastSeen && (
+																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
+																	<Clock className='size-3' />
+																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
+																</div>
+															)}
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+									);
+								}
+								return null;
+							})()}
+
+							{/* Not Following People Section */}
+							{(() => {
+								const notFollowingUsers = users.filter(user => 
+									user.email !== ADMIN_EMAIL && 
+									(user.friendStatus === 'none' || user.friendStatus === 'request_received')
+								);
+								if (notFollowingUsers.length > 0) {
+									return (
+										<div>
+											<div className='flex items-center gap-2 mb-3'>
+												<UserPlus className='size-4 text-blue-500' />
+												<h3 className='text-sm font-medium text-blue-500'>Discover New People</h3>
+												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+													{notFollowingUsers.length}
+												</span>
+											</div>
+											<div className='space-y-3'>
+												{notFollowingUsers.map((user) => (
+													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+														{/* Avatar */}
+														<div className='relative flex-shrink-0'>
+															<UserAvatar 
+																size="md" 
+																src={user.picture} 
+																firstName={user.firstName} 
+																lastName={user.lastName}
+																showOnlineStatus={user.isOnline}
+															/>
+														</div>
+
+														{/* User info and follow button */}
+														<div className='flex-1 min-w-0'>
+															<div className='flex items-center gap-2 mb-1'>
+																<p className='text-white text-sm font-medium truncate'>
+																	{user.firstName} {user.lastName}
+																</p>
+																{user.accountType === 'premium' && (
+																	<Crown className='size-3 text-yellow-500' />
+																)}
+															</div>
+
+															{/* Follow button under name */}
+															<div className='mb-2'>
+																{user.friendStatus === 'request_received' ? (
+																	<div className='flex gap-2'>
+																		<button
+																			onClick={() => handleAcceptRequest(user.id)}
+																			className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+																			disabled={processingRequests.has(user.id)}
+																		>
+																			<UserCheck className='size-3' />
+																			<span>Accept</span>
+																		</button>
+																		<button
+																			onClick={() => handleDeclineRequest(user.id)}
+																			className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+																			disabled={processingRequests.has(user.id)}
+																		>
+																			<UserX className='size-3' />
+																			<span>Reject</span>
+																		</button>
+																	</div>
+																) : (
+																	<button
+																		onClick={() => handleFollowRequest(user.id)}
+																		className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${
+																			processingRequests.has(user.id)
+																				? 'bg-zinc-700 text-white cursor-not-allowed opacity-70'
+																				: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
+																		}`}
+																		disabled={processingRequests.has(user.id)}
+																	>
+																		<UserPlus className='size-3' />
+																		<span>Follow</span>
+																	</button>
+																)}
+															</div>
+
+															<div className='flex items-center gap-2 text-xs text-zinc-400'>
+																<span className='truncate'>@{user.email.split('@')[0]}</span>
+																{user.followersCount > 0 && (
+																	<>
+																		<span>•</span>
+																		<span>{user.followersCount} followers</span>
+																	</>
+																)}
+															</div>
+															{user.lastSeen && (
+																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
+																	<Clock className='size-3' />
+																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
+																</div>
+															)}
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+									);
+								}
+								return null;
+							})()}
+						</>
 					)}
 				</div>
 			</ScrollArea>
