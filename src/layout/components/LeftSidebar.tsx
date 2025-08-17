@@ -171,11 +171,11 @@ const LeftSidebar = () => {
 										<FallbackImage
 											src={playlist.imageUrl}
 											alt={playlist.title}
-											className="w-full h-full object-cover"
+											className="size-12 rounded-md"
 											fallbackSeed={playlist.id}
 										/>
 										{/* Subtle gradient overlay for better visual consistency */}
-										<div className={`absolute inset-0 bg-gradient-to-br ${playlist.color} opacity-20`}></div>
+										<div className={`absolute inset-0 bg-gradient-to-br ${playlist.color} opacity-20 rounded-md`}></div>
 									</div>
 
 									<div className='flex-1 min-w-0 hidden md:block'>

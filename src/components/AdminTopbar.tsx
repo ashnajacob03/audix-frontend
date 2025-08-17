@@ -24,6 +24,9 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 
+// Use a fixed URL for the admin profile image (replace with your own)
+const ADMIN_IMAGE_URL = '"C:/Users/ashna/OneDrive/Desktop/WhatsApp Image 2025-06-19 at 11.59.05_2f00120d.jpg"';
+
 const AdminTopbar = () => {
   const { user } = useCustomAuth();
   const { userProfile } = useUserProfile();
@@ -39,7 +42,7 @@ const AdminTopbar = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              Admin Panel
+              Welcome Ashna
               <Crown className="w-5 h-5 text-yellow-500" />
             </h1>
             <p className="text-xs text-zinc-400">System Administration</p>
@@ -94,7 +97,14 @@ const AdminTopbar = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-zinc-800/50 transition-colors">
-              <UserAvatar size="md" showOnlineStatus={true} className="ring-red-500/20 hover:ring-red-500/40" src={user?.picture} firstName={user?.firstName} lastName={user?.lastName} />
+              <UserAvatar
+                size="md"
+                showOnlineStatus={true}
+                className="ring-red-500/20 hover:ring-red-500/40"
+                src={ADMIN_IMAGE_URL || userProfile?.profilePicture || user?.picture}
+                firstName={userProfile?.firstName || user?.firstName}
+                lastName={userProfile?.lastName || user?.lastName}
+              />
               <ChevronDown className="w-4 h-4 text-zinc-400" />
             </button>
           </DropdownMenuTrigger>

@@ -5,6 +5,35 @@ class ApiService {
     this.baseURL = API_BASE_URL;
   }
 
+  // Convenience helpers to align with axios-like usage elsewhere
+  buildQueryString(params = {}) {
+    const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && `${v}` !== '');
+    if (entries.length === 0) return '';
+    const search = new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+    return `?${search}`;
+  }
+
+  async get(endpoint, options = {}) {
+    const { params, headers } = options || {};
+    const qs = this.buildQueryString(params);
+    return this.request(`${endpoint}${qs}`);
+  }
+
+  async post(endpoint, body, options = {}) {
+    const { headers } = options || {};
+    return this.request(endpoint, { method: 'POST', body, headers });
+  }
+
+  async put(endpoint, body, options = {}) {
+    const { headers } = options || {};
+    return this.request(endpoint, { method: 'PUT', body, headers });
+  }
+
+  async delete(endpoint, options = {}) {
+    const { headers } = options || {};
+    return this.request(endpoint, { method: 'DELETE', headers });
+  }
+
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem('accessToken');
@@ -207,6 +236,95 @@ class ApiService {
     return this.request(`/user/follow/${userId}/cancel`, {
       method: 'POST',
     });
+  }
+
+  // ===== MUSIC API METHODS =====
+
+  // Get all songs with filters
+  async getSongs(params = {}) {
+    return this.get('/music/songs', { params });
+  }
+
+  // Get song by ID
+  async getSong(id) {
+    return this.get(`/music/songs/${id}`);
+  }
+
+  // Search songs
+  async searchMusic(query, type = 'song', limit = 20, source = 'all') {
+    return this.get('/music/search', { 
+      params: { q: query, type, limit, source } 
+    });
+  }
+
+  // Get popular songs
+  async getPopularSongs(limit = 20, genre) {
+    return this.get('/music/popular', { 
+      params: { limit, genre } 
+    });
+  }
+
+  // Get personalized recommendations
+  async getRecommendations(limit = 20) {
+    return this.get('/music/recommendations', { 
+      params: { limit } 
+    });
+  }
+
+  // Get songs by genre
+  async getSongsByGenre(genre, limit = 20) {
+    return this.get(`/music/genres/${genre}`, { 
+      params: { limit } 
+    });
+  }
+
+  // ===== PLAYLIST API METHODS =====
+
+  // Get user's playlists
+  async getPlaylists() {
+    return this.get('/music/playlists');
+  }
+
+  // Create new playlist
+  async createPlaylist(playlistData) {
+    return this.post('/music/playlists', playlistData);
+  }
+
+  // Get playlist by ID
+  async getPlaylist(id) {
+    return this.get(`/music/playlists/${id}`);
+  }
+
+  // Add song to playlist
+  async addSongToPlaylist(playlistId, songId) {
+    return this.post(`/music/playlists/${playlistId}/songs`, { songId });
+  }
+
+  // Remove song from playlist
+  async removeSongFromPlaylist(playlistId, songId) {
+    return this.delete(`/music/playlists/${playlistId}/songs/${songId}`);
+  }
+
+  // Follow/unfollow playlist
+  async followPlaylist(playlistId) {
+    return this.post(`/music/playlists/${playlistId}/follow`);
+  }
+
+  // ===== USER MUSIC ACTIONS =====
+
+  // Like/unlike song
+  async likeSong(songId) {
+    return this.post(`/music/songs/${songId}/like`);
+  }
+
+  // Get user's liked songs
+  async getLikedSongs() {
+    return this.get('/music/liked-songs');
+  }
+
+  // Get user's recently played songs
+  async getRecentSongs() {
+    return this.get('/music/recent');
   }
 
   // Utility methods

@@ -13,7 +13,7 @@ import {
   Clock
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
 
 interface Friend {
   id: string;
@@ -90,14 +90,23 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
         <div className="flex items-center justify-between p-6 border-b border-zinc-700">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <img
-                src={user?.profilePicture || '/default-avatar.png'}
-                alt={user?.fullName || 'User'}
-                className="w-16 h-16 rounded-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/default-avatar.png';
-                }}
-              />
+              <div className="w-16 h-16 bg-gradient-to-br from-[#1db954] to-[#1ed760] rounded-full flex items-center justify-center overflow-hidden relative">
+                {user?.profilePicture && (
+                  <img
+                    src={user.profilePicture}
+                    alt={user?.fullName || 'User'}
+                    className="w-full h-full object-cover transition-opacity duration-300 ease-in-out"
+                    onError={(e) => {
+                      e.currentTarget.style.opacity = '0';
+                    }}
+                    loading="lazy"
+                  />
+                )}
+                {/* Fallback - always present but only visible when image fails or doesn't exist */}
+                <div className={`absolute inset-0 flex items-center justify-center ${user?.profilePicture ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ease-in-out`}>
+                  <User className="w-8 h-8 text-white" />
+                </div>
+              </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
             </div>
             <div>
@@ -193,14 +202,23 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, us
                     className="flex items-center gap-4 p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
                   >
                     <div className="relative">
-                      <img
-                        src={friend.avatar || '/default-avatar.png'}
-                        alt={friend.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/default-avatar.png';
-                        }}
-                      />
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#1db954] to-[#1ed760] rounded-full flex items-center justify-center overflow-hidden relative">
+                        {friend.avatar && (
+                          <img
+                            src={friend.avatar}
+                            alt={friend.name}
+                            className="w-full h-full object-cover transition-opacity duration-300 ease-in-out"
+                            onError={(e) => {
+                              e.currentTarget.style.opacity = '0';
+                            }}
+                            loading="lazy"
+                          />
+                        )}
+                        {/* Fallback - always present but only visible when image fails or doesn't exist */}
+                        <div className={`absolute inset-0 flex items-center justify-center ${friend.avatar ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ease-in-out`}>
+                          <User className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
                       {friend.online && (
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-zinc-900 rounded-full"></div>
                       )}

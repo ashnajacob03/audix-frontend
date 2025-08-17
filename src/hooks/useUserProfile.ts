@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCustomAuth } from '../contexts/AuthContext';
 
 interface UserProfile {
@@ -28,7 +28,35 @@ export const useUserProfile = (): UseUserProfileReturn => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUserProfile = async () => {
+  // Memoize the custom profile to prevent unnecessary re-renders
+  const customProfile = useMemo(() => {
+    if (!customUser) return null;
+    
+    return {
+      id: customUser.id,
+      firstName: customUser.firstName || '',
+      lastName: customUser.lastName || '',
+      fullName: customUser.name || `${customUser.firstName || ''} ${customUser.lastName || ''}`.trim(),
+      email: customUser.email || '',
+      profilePicture: customUser.picture,
+      isEmailVerified: customUser.isEmailVerified || false,
+      accountType: customUser.accountType || 'free',
+      isAdmin: customUser.isAdmin || false,
+      createdAt: new Date().toISOString(),
+    };
+  }, [
+    customUser?.id,
+    customUser?.firstName,
+    customUser?.lastName,
+    customUser?.name,
+    customUser?.email,
+    customUser?.picture,
+    customUser?.isEmailVerified,
+    customUser?.accountType,
+    customUser?.isAdmin
+  ]);
+
+  const fetchUserProfile = useCallback(async () => {
     if (!customUser || !isAuthenticated) {
       setIsLoading(false);
       return;
@@ -43,19 +71,9 @@ export const useUserProfile = (): UseUserProfileReturn => {
 
       if (!accessToken) {
         // If no MongoDB token, use custom user data as fallback
-        const customProfile: UserProfile = {
-          id: customUser.id,
-          firstName: customUser.firstName || '',
-          lastName: customUser.lastName || '',
-          fullName: customUser.name || `${customUser.firstName || ''} ${customUser.lastName || ''}`.trim(),
-          email: customUser.email || '',
-          profilePicture: customUser.picture,
-          isEmailVerified: customUser.isEmailVerified || false,
-          accountType: customUser.accountType || 'free',
-          isAdmin: customUser.isAdmin || false,
-          createdAt: new Date().toISOString(),
-        };
-        setUserProfile(customProfile);
+        if (customProfile) {
+          setUserProfile(customProfile);
+        }
         setIsLoading(false);
         return;
       }
@@ -97,18 +115,22 @@ export const useUserProfile = (): UseUserProfileReturn => {
     } catch (err: any) {
       console.error('Error fetching user profile:', err);
       setError(err.message);
+      // Fallback to custom profile on error
+      if (customProfile) {
+        setUserProfile(customProfile);
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [customUser, isAuthenticated, customProfile]);
 
   useEffect(() => {
     fetchUserProfile();
-  }, [customUser, isAuthenticated]);
+  }, [fetchUserProfile]);
 
-  const refetch = () => {
+  const refetch = useCallback(() => {
     fetchUserProfile();
-  };
+  }, [fetchUserProfile]);
 
   return {
     userProfile,

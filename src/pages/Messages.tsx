@@ -4,20 +4,24 @@ import { useSocket } from '@/contexts/SocketContext';
 import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MessageCircle,
   Send,
   Search,
   MoreVertical,
-  Phone,
-  Video,
   Smile,
   Paperclip,
   User,
-  Music,
   Clock,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
@@ -94,6 +98,50 @@ const Messages = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Delete message function
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      console.log('🗑️ Attempting to delete message:', messageId);
+      console.log('👤 Current user ID:', user?.id);
+      
+      // Find the message in local state to get sender info
+      const messageToDelete = messages.find(msg => msg.id === messageId);
+      if (messageToDelete) {
+        console.log('📝 Message sender ID:', messageToDelete.senderId);
+        console.log('🔍 User ID vs Sender ID match:', user?.id === messageToDelete.senderId);
+      }
+      
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token) {
+        console.error('❌ No access token found');
+        return;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('📡 Delete response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Message deleted successfully:', data);
+        // Remove message from local state
+        setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Failed to delete message:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Error deleting message:', error);
+    }
+  };
 
   // Deduplicate conversations by participant (keep the most recent)
   const dedupeConversationsByParticipant = (items: Conversation[]): Conversation[] => {
@@ -336,18 +384,27 @@ const Messages = () => {
       ));
     };
 
+    const handleMessageDeleted = (data: { messageId: string; conversationId: string }) => {
+      if (data.conversationId === getConversationId(user?.id || '', selectedChat || '')) {
+        setMessages(prev => prev.filter(msg => msg.id !== data.messageId));
+      }
+    };
+
     const newMessageListener = (e: any) => handleNewMessage(e.detail);
     const messageSentListener = (e: any) => handleMessageSent(e.detail);
     const messagesReadListener = (e: any) => handleMessagesRead(e.detail);
+    const messageDeletedListener = (e: any) => handleMessageDeleted(e.detail);
 
     window.addEventListener('new_message', newMessageListener);
     window.addEventListener('message_sent', messageSentListener);
     window.addEventListener('messages_read', messagesReadListener);
+    window.addEventListener('message_deleted', messageDeletedListener);
 
     return () => {
       window.removeEventListener('new_message', newMessageListener);
       window.removeEventListener('message_sent', messageSentListener);
       window.removeEventListener('messages_read', messagesReadListener);
+      window.removeEventListener('message_deleted', messageDeletedListener);
     };
   }, [socket, selectedChat, user]);
 
@@ -792,12 +849,6 @@ const Messages = () => {
                   
                   <div className="flex items-center gap-2">
                     <button className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
-                      <Phone className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
-                      <Video className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
@@ -824,9 +875,9 @@ const Messages = () => {
                       {messages.map((message) => (
                         <div
                           key={message.id}
-                          className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
+                          className={`flex ${message.senderId === user?.id ? 'justify-end' : 'justify-start'} group`}
                         >
-                          <div className="max-w-xs lg:max-w-md">
+                          <div className="max-w-xs lg:max-w-md relative">
                             {message.replyTo && (
                               <div className="mb-1 px-3 py-1 bg-zinc-800/50 rounded-t-lg border-l-2 border-zinc-600">
                                 <p className="text-xs text-zinc-400">Replying to {message.replyTo.senderName}</p>
@@ -852,15 +903,36 @@ const Messages = () => {
                                     minute: '2-digit' 
                                   })}
                                 </span>
-                                {message.senderId === user?.id && (
-                                  <span className="ml-2">
-                                    {message.isOptimistic ? (
-                                      <Loader2 className="w-3 h-3 animate-spin text-yellow-300" />
-                                    ) : (
-                                      <span>{message.isRead ? '✓✓' : '✓'}</span>
-                                    )}
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  {message.senderId === user?.id && (
+                                    <span className="ml-2">
+                                      {message.isOptimistic ? (
+                                        <Loader2 className="w-3 h-3 animate-spin text-yellow-300" />
+                                      ) : (
+                                        <span>{message.isRead ? '✓✓' : '✓'}</span>
+                                      )}
+                                    </span>
+                                  )}
+                                  {/* 3-dot menu for message options */}
+                                  {message.senderId === user?.id && !message.isOptimistic && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-black/20 rounded">
+                                          <MoreVertical className="w-3 h-3" />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-32">
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteMessage(message.id)}
+                                          className="text-red-500 focus:text-red-500 cursor-pointer"
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-2" />
+                                          Delete
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

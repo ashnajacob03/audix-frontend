@@ -223,19 +223,22 @@ const Settings = () => {
                     {/* Profile Picture */}
                     <div className="flex items-center gap-6">
                       <div className="relative">
-                        <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden">
-                          {profileImage || user?.picture ? (
+                        <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden relative">
+                          {(profileImage || user?.picture) && (
                             <img
                               src={profileImage || user?.picture}
                               alt="Profile"
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover transition-opacity duration-300 ease-in-out"
                               onError={(e) => {
-                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.style.opacity = '0';
                               }}
+                              loading="lazy"
                             />
-                          ) : (
-                            <User className="w-12 h-12 text-white" />
                           )}
+                          {/* Fallback icon - always present but only visible when image fails or doesn't exist */}
+                          <div className={`absolute inset-0 flex items-center justify-center ${(profileImage || user?.picture) ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ease-in-out`}>
+                            <User className="w-12 h-12 text-white" />
+                          </div>
                         </div>
                         {isEditing && (
                           <button

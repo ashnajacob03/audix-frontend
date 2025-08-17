@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import adminApi from '@/services/adminApi';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import AdminTopbar from '@/components/AdminTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import UserManagement from '@/components/admin/UserManagement';
+import Analytics from '@/components/admin/Analytics';
 import {
   Shield,
   Users,
@@ -32,7 +35,8 @@ import {
   ArrowDownRight,
   Sparkles,
   Bell,
-  RefreshCw
+  RefreshCw,
+  
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -43,6 +47,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   // Admin email from environment
   const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
@@ -65,30 +70,36 @@ const AdminDashboard = () => {
     }
   }, [user, userProfile, navigate]);
 
-  // Enhanced mock data with professional metrics
-  const enhancedStats = {
-    totalUsers: 45672,
-    totalSongs: 23891,
-    activeUsers: 8934,
-    revenue: 127450,
-    newUsersToday: 342,
-    songsPlayedToday: 28456,
-    downloadsToday: 1247,
-    premiumUsers: 5621,
-    avgSessionTime: '24m 32s',
-    conversionRate: 12.4,
-    topGenre: 'Pop',
-    serverUptime: 99.9,
-    totalStreams: 1247892,
-    artistCount: 2341
+  // Live dashboard stats
+  const [dashboardStats, setDashboardStats] = useState<{
+    users: { total: number; premium: number; newToday: number; activeToday: number };
+    revenue: { monthly: number; growthRate: number };
+    engagement: { totalStreams: number; avgSessionTime: string };
+  } | null>(null);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const resp = await adminApi.getDashboardStats();
+      // adminApi returns inner data, so resp = { stats }
+      setDashboardStats(resp.stats);
+    } catch (e) {
+      console.error('Failed to load dashboard stats', e);
+    }
   };
+
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchDashboardStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized]);
 
   // Professional admin stats with enhanced metrics
   const adminStats = [
     {
       icon: Users,
       label: "Total Users",
-      value: enhancedStats.totalUsers.toLocaleString(),
+      value: (dashboardStats?.users.total ?? 0).toLocaleString(),
       change: "+12.4%",
       changeType: "positive",
       color: "from-blue-500 to-blue-600",
@@ -98,7 +109,7 @@ const AdminDashboard = () => {
     {
       icon: Music,
       label: "Total Songs",
-      value: enhancedStats.totalSongs.toLocaleString(),
+      value: (0).toLocaleString(),
       change: "+8.7%",
       changeType: "positive",
       color: "from-green-500 to-green-600",
@@ -108,7 +119,7 @@ const AdminDashboard = () => {
     {
       icon: Crown,
       label: "Premium Users",
-      value: enhancedStats.premiumUsers.toLocaleString(),
+      value: (dashboardStats?.users.premium ?? 0).toLocaleString(),
       change: "+23.1%",
       changeType: "positive",
       color: "from-yellow-500 to-yellow-600",
@@ -118,7 +129,7 @@ const AdminDashboard = () => {
     {
       icon: Activity,
       label: "Active Now",
-      value: enhancedStats.activeUsers.toLocaleString(),
+      value: (dashboardStats?.users.activeToday ?? 0).toLocaleString(),
       change: "+5.2%",
       changeType: "positive",
       color: "from-purple-500 to-purple-600",
@@ -128,7 +139,7 @@ const AdminDashboard = () => {
     {
       icon: DollarSign,
       label: "Revenue",
-      value: `$${enhancedStats.revenue.toLocaleString()}`,
+      value: `$${(dashboardStats?.revenue.monthly ?? 0).toLocaleString()}`,
       change: "+15.8%",
       changeType: "positive",
       color: "from-emerald-500 to-emerald-600",
@@ -138,7 +149,7 @@ const AdminDashboard = () => {
     {
       icon: Play,
       label: "Total Streams",
-      value: `${(enhancedStats.totalStreams / 1000000).toFixed(1)}M`,
+      value: `${(((dashboardStats?.engagement.totalStreams ?? 0) / 1000000)).toFixed(1)}M`,
       change: "+18.3%",
       changeType: "positive",
       color: "from-pink-500 to-pink-600",
@@ -174,52 +185,48 @@ const AdminDashboard = () => {
     }
   ];
 
-  const recentUsers = [
-    {
-      id: 1,
-      name: 'Alexandra Chen',
-      email: 'alex.chen@example.com',
-      joinDate: '2024-01-15',
-      status: 'Premium',
-      avatar: 'AC',
-      lastActive: '2 min ago',
-      totalPlays: 1247,
-      country: 'US'
-    },
-    {
-      id: 2,
-      name: 'Marcus Johnson',
-      email: 'marcus.j@example.com',
-      joinDate: '2024-01-14',
-      status: 'Active',
-      avatar: 'MJ',
-      lastActive: '1 hour ago',
-      totalPlays: 892,
-      country: 'CA'
-    },
-    {
-      id: 3,
-      name: 'Sofia Rodriguez',
-      email: 'sofia.r@example.com',
-      joinDate: '2024-01-13',
-      status: 'Premium',
-      avatar: 'SR',
-      lastActive: '5 min ago',
-      totalPlays: 2341,
-      country: 'ES'
-    },
-    {
-      id: 4,
-      name: 'David Kim',
-      email: 'david.kim@example.com',
-      joinDate: '2024-01-12',
-      status: 'Active',
-      avatar: 'DK',
-      lastActive: '3 hours ago',
-      totalPlays: 567,
-      country: 'KR'
-    },
-  ];
+  type AdminUserListItem = {
+    id: string;
+    name: string;
+    email: string;
+    avatar: string | null;
+    accountType: 'free' | 'premium' | 'family' | 'student';
+    isEmailVerified: boolean;
+    isAdmin: boolean;
+    joinedAt: string;
+    lastLogin: string;
+    isActive: boolean;
+  };
+
+  const [recentUsers, setRecentUsers] = useState<AdminUserListItem[]>([]);
+
+  const fetchRecentUsers = async () => {
+    try {
+      const resp = await adminApi.getUsers({ page: 1, limit: 5 });
+      setRecentUsers(resp.users);
+    } catch (e) {
+      console.error('Failed to load recent users', e);
+    }
+  };
+
+  const formatRelative = (date?: string) => {
+    if (!date) return '—';
+    const d = new Date(date);
+    const diffMs = Date.now() - d.getTime();
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} d ago`;
+  };
+
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchRecentUsers();
+    }
+  }, [isAuthorized]);
 
   const topSongs = [
     {
@@ -341,8 +348,7 @@ const AdminDashboard = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await fetchDashboardStats();
     setRefreshing(false);
   };
 
@@ -355,15 +361,6 @@ const AdminDashboard = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="space-y-3">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-green-500/25">
-                  <Sparkles className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-zinc-100 to-zinc-300 bg-clip-text text-transparent">
-                    Admin Dashboard
-                  </h1>
-                  <p className="text-zinc-400 text-lg">Real-time insights and analytics</p>
-                </div>
               </div>
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-2">
@@ -382,67 +379,181 @@ const AdminDashboard = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 bg-zinc-800/50 backdrop-blur-sm border border-zinc-700/50 rounded-xl px-4 py-3">
-                <Calendar className="w-4 h-4 text-zinc-400" />
-                <select
-                  value={selectedTimeRange}
-                  onChange={(e) => setSelectedTimeRange(e.target.value)}
-                  className="bg-transparent text-white text-sm focus:outline-none cursor-pointer"
-                >
-                  <option value="24h">Last 24 hours</option>
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                </select>
-              </div>
+              {activeTab === 'dashboard' && (
+                <>
+                  <div className="flex items-center gap-2 bg-zinc-800/50 backdrop-blur-sm border border-zinc-700/50 rounded-xl px-4 py-3">
+                    <Calendar className="w-4 h-4 text-zinc-400" />
+                    <select
+                      value={selectedTimeRange}
+                      onChange={(e) => setSelectedTimeRange(e.target.value)}
+                      className="bg-transparent text-white text-sm focus:outline-none cursor-pointer"
+                    >
+                      <option value="24h">Last 24 hours</option>
+                      <option value="7d">Last 7 days</option>
+                      <option value="30d">Last 30 days</option>
+                      <option value="90d">Last 90 days</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex items-center gap-2 px-4 py-3 bg-zinc-800/50 backdrop-blur-sm border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 hover:text-white rounded-xl transition-all duration-200"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                  <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-green-500/25">
+                    <Download className="w-4 h-4" />
+                    Export Data
+                  </button>
+                  <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
+                    <BarChart3 className="w-4 h-4" />
+                    Generate Report
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-2">
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-3 bg-zinc-800/50 backdrop-blur-sm border border-zinc-700/50 hover:border-zinc-600/50 text-zinc-300 hover:text-white rounded-xl transition-all duration-200"
+                onClick={() => setActiveTab('dashboard')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'dashboard'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
-              <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-green-500/25">
-                <Download className="w-4 h-4" />
-                Export Data
-              </button>
-              <button className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/25">
                 <BarChart3 className="w-4 h-4" />
-                Generate Report
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'users'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'analytics'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                Analytics
+              </button>
+              <button
+                onClick={() => setActiveTab('content')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'content'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
+              >
+                <Music className="w-4 h-4" />
+                Content
+              </button>
+              <button
+                onClick={() => setActiveTab('system')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'system'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
+              >
+                <Server className="w-4 h-4" />
+                System
               </button>
             </div>
           </div>
 
-          {/* Enhanced Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adminStats.map((stat, index) => (
-              <div key={index} className={`relative overflow-hidden ${stat.bgColor} backdrop-blur-sm border ${stat.borderColor} rounded-2xl p-6 group hover:scale-105 transition-all duration-300`}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <p className="text-zinc-400 text-sm font-medium">{stat.label}</p>
-                    <p className="text-3xl font-bold text-white">{stat.value}</p>
-                    <div className="flex items-center gap-2">
-                      {stat.changeType === 'positive' ? (
-                        <ArrowUpRight className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4 text-red-400" />
-                      )}
-                      <span className={`text-sm font-medium ${stat.changeType === 'positive' ? 'text-green-400' : 'text-red-400'}`}>
-                        {stat.change}
-                      </span>
-                      <span className="text-zinc-500 text-sm">vs last period</span>
+          {/* Conditional Content Based on Active Tab */}
+          {activeTab === 'dashboard' && (
+            <>
+              {/* Enhanced Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {adminStats.map((stat, index) => (
+                  <div key={index} className={`relative overflow-hidden ${stat.bgColor} backdrop-blur-sm border ${stat.borderColor} rounded-2xl p-6 group hover:scale-105 transition-all duration-300`}>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2">
+                        <p className="text-zinc-400 text-sm font-medium">{stat.label}</p>
+                        <p className="text-3xl font-bold text-white">{stat.value}</p>
+                        <div className="flex items-center gap-2">
+                          {stat.changeType === 'positive' ? (
+                            <ArrowUpRight className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <ArrowDownRight className="w-4 h-4 text-red-400" />
+                          )}
+                          <span className={`text-sm font-medium ${stat.changeType === 'positive' ? 'text-green-400' : 'text-red-400'}`}>
+                            {stat.change}
+                          </span>
+                          <span className="text-zinc-500 text-sm">vs last period</span>
+                        </div>
+                      </div>
+                      <div className={`w-16 h-16 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                        <stat.icon className="w-8 h-8 text-white" />
+                      </div>
                     </div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   </div>
-                  <div className={`w-16 h-16 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <stat.icon className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
 
+          {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'analytics' && <Analytics />}
+          
+          {activeTab === 'content' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Music className="w-6 h-6 text-green-400" />
+                    Content Management
+                  </h2>
+                  <p className="text-zinc-400 mt-1">Manage music content and playlists</p>
+                </div>
+              </div>
+              <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-8 text-center">
+                <Music className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Content Management</h3>
+                <p className="text-zinc-400">Music content management features coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'system' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                    <Server className="w-6 h-6 text-blue-400" />
+                    System Management
+                  </h2>
+                  <p className="text-zinc-400 mt-1">Monitor system health and performance</p>
+                </div>
+              </div>
+              <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-8 text-center">
+                <Server className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">System Management</h3>
+                <p className="text-zinc-400">System monitoring and management features coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Show original dashboard content only when dashboard tab is active */}
+          {activeTab === 'dashboard' && (
+            <>
           {/* Quick Actions */}
           <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
@@ -490,36 +601,47 @@ const AdminDashboard = () => {
                   <button className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors">
                     <Filter className="w-4 h-4 text-zinc-400" />
                   </button>
-                  <button className="text-blue-400 hover:text-blue-300 text-sm font-medium">View All</button>
+                  <button onClick={() => setActiveTab('users')} className="text-blue-400 hover:text-blue-300 text-sm font-medium">View All</button>
                 </div>
               </div>
               <div className="space-y-3">
                 {recentUsers.map((user) => (
                   <div key={user.id} className="flex items-center justify-between p-4 bg-zinc-700/20 hover:bg-zinc-700/40 rounded-xl transition-colors group">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <span className="text-white font-bold">{user.avatar}</span>
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+                        {user.avatar ? (
+                          <img src={user.avatar} alt={user.name} className="w-12 h-12 object-cover rounded-xl" />
+                        ) : (
+                          <span className="text-white font-bold">
+                            {user.name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        )}
                       </div>
                       <div>
                         <p className="text-white font-medium group-hover:text-blue-300 transition-colors">{user.name}</p>
                         <p className="text-zinc-400 text-sm">{user.email}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Globe className="w-3 h-3 text-zinc-500" />
-                          <span className="text-zinc-500 text-xs">{user.country}</span>
-                          <span className="text-zinc-600">•</span>
-                          <span className="text-zinc-500 text-xs">{user.totalPlays} plays</span>
+                          <span className="text-zinc-500 text-xs">{formatRelative(user.lastLogin)}</span>
+                          {user.isEmailVerified && (
+                            <>
+                              <span className="text-zinc-600">•</span>
+                              <span className="text-green-400 text-xs">Verified</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.status === 'Premium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                        user.status === 'Active' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                        'bg-red-500/20 text-red-400 border border-red-500/30'
+                        user.accountType === 'premium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                        user.accountType === 'family' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                        user.accountType === 'student' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                        'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
                       }`}>
-                        {user.status}
+                        {user.accountType}
                       </span>
-                      <p className="text-zinc-400 text-xs mt-2">{user.lastActive}</p>
+                      <p className="text-zinc-400 text-xs mt-2">{formatRelative(user.lastLogin)}</p>
                     </div>
                   </div>
                 ))}
@@ -674,6 +796,8 @@ const AdminDashboard = () => {
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
       </ScrollArea>
     </div>

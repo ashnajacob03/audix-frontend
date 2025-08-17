@@ -101,7 +101,7 @@ export const PlaybackControls = () => {
                 <FallbackImage
                   src={currentSong.imageUrl}
                   alt={currentSong.title}
-                  className="w-14 h-14 object-cover rounded-md"
+                  className="w-14 h-14 rounded-md"
                   fallbackSeed={currentSong._id}
                 />
                 {/* Link to song details overlay on hover */}

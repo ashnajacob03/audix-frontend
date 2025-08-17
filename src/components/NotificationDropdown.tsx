@@ -24,7 +24,7 @@ interface Notification {
     firstName: string;
     lastName: string;
     profilePicture?: string;
-  };
+  } | null;
   type: string;
   title: string;
   message: string;
@@ -344,10 +344,10 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
-                          {notification.sender.profilePicture ? (
+                          {notification.sender?.profilePicture ? (
                             <img
                               src={notification.sender.profilePicture}
-                              alt={`${notification.sender.firstName} ${notification.sender.lastName}`}
+                              alt={`${notification.sender?.firstName || 'User'} ${notification.sender?.lastName || ''}`}
                               className="w-8 h-8 rounded-full"
                             />
                           ) : (
@@ -360,7 +360,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-sm text-white font-medium truncate">
-                              {notification.sender.firstName} {notification.sender.lastName}
+                              {notification.sender ? `${notification.sender.firstName} ${notification.sender.lastName}` : 'Unknown User'}
                             </p>
                             {!notification.isRead && (
                               <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
@@ -382,15 +382,17 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                           {notification.type === 'friend_request' && notification.actionTaken === 'pending' && (
                             <div className="flex gap-2 mt-3">
                               <button
-                                onClick={() => acceptFriendRequest(notification.sender._id, notification._id)}
+                                onClick={() => notification.sender && acceptFriendRequest(notification.sender._id, notification._id)}
                                 className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors"
+                                disabled={!notification.sender}
                               >
                                 <Check className="w-3 h-3" />
                                 Accept
                               </button>
                               <button
-                                onClick={() => declineFriendRequest(notification.sender._id, notification._id)}
+                                onClick={() => notification.sender && declineFriendRequest(notification.sender._id, notification._id)}
                                 className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors"
+                                disabled={!notification.sender}
                               >
                                 <X className="w-3 h-3" />
                                 Decline
@@ -402,15 +404,17 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                           {notification.type === 'follow_request' && notification.actionTaken === 'pending' && (
                             <div className="flex gap-2 mt-3">
                               <button
-                                onClick={() => acceptFollowRequest(notification.sender._id, notification._id)}
+                                onClick={() => notification.sender && acceptFollowRequest(notification.sender._id, notification._id)}
                                 className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md transition-colors"
+                                disabled={!notification.sender}
                               >
                                 <Check className="w-3 h-3" />
                                 Accept
                               </button>
                               <button
-                                onClick={() => declineFollowRequest(notification.sender._id, notification._id)}
+                                onClick={() => notification.sender && declineFollowRequest(notification.sender._id, notification._id)}
                                 className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md transition-colors"
+                                disabled={!notification.sender}
                               >
                                 <X className="w-3 h-3" />
                                 Decline

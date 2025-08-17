@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FallbackImageProps {
   src: string;
@@ -16,6 +16,15 @@ const FallbackImage = ({
   onError 
 }: FallbackImageProps) => {
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  // Reset error state when src changes
+  useEffect(() => {
+    setImageError(false);
+    setImageLoading(true);
+    setCurrentSrc(src);
+  }, [src]);
 
   // Array of high-quality music-themed fallback images from Unsplash
   const fallbackImages = [
@@ -35,19 +44,41 @@ const FallbackImage = ({
   };
 
   const handleImageError = () => {
-    setImageError(true);
+    if (!imageError) {
+      setImageError(true);
+      setCurrentSrc(getFallbackImage(fallbackSeed));
+      setImageLoading(true); // Start loading the fallback image
+    }
     if (onError) {
       onError();
     }
   };
 
+  const handleImageLoad = () => {
+    setImageLoading(false);
+  };
+
   return (
-    <img
-      src={imageError ? getFallbackImage(fallbackSeed) : src}
-      alt={alt}
-      className={className}
-      onError={handleImageError}
-    />
+    <div className={`relative ${className}`}>
+      {/* Loading placeholder - only show when actually loading */}
+      {imageLoading && (
+        <div 
+          className="absolute inset-0 bg-gradient-to-br from-zinc-700 to-zinc-800 animate-pulse rounded-md z-10" 
+        />
+      )}
+      
+      {/* Main image */}
+      <img
+        src={currentSrc}
+        alt={alt}
+        className={`w-full h-full object-cover rounded-md shadow-lg ${
+          imageLoading ? 'opacity-0' : 'opacity-100'
+        } transition-opacity duration-300 ease-in-out`}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        loading="lazy"
+      />
+    </div>
   );
 };
 
