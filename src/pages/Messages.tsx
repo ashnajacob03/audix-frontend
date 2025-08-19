@@ -102,20 +102,10 @@ const Messages = () => {
   // Delete message function
   const handleDeleteMessage = async (messageId: string) => {
     try {
-      console.log('🗑️ Attempting to delete message:', messageId);
-      console.log('👤 Current user ID:', user?.id);
-      
-      // Find the message in local state to get sender info
-      const messageToDelete = messages.find(msg => msg.id === messageId);
-      if (messageToDelete) {
-        console.log('📝 Message sender ID:', messageToDelete.senderId);
-        console.log('🔍 User ID vs Sender ID match:', user?.id === messageToDelete.senderId);
-      }
-      
       const token = localStorage.getItem('accessToken');
       
       if (!token) {
-        console.error('❌ No access token found');
+        console.error('No access token found');
         return;
       }
       
@@ -127,19 +117,15 @@ const Messages = () => {
         },
       });
       
-      console.log('📡 Delete response status:', response.status);
-      
       if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Message deleted successfully:', data);
         // Remove message from local state
         setMessages(prev => prev.filter(msg => msg.id !== messageId));
       } else {
         const errorData = await response.json();
-        console.error('❌ Failed to delete message:', errorData);
+        console.error('Failed to delete message:', errorData);
       }
     } catch (error) {
-      console.error('❌ Error deleting message:', error);
+      console.error('Error deleting message:', error);
     }
   };
 
@@ -177,10 +163,8 @@ const Messages = () => {
         });
         
         const data = await response.json();
-        console.log('🔍 Frontend received conversations data:', data);
         if (data.success) {
           const deduped = dedupeConversationsByParticipant(data.data.conversations || []);
-          console.log('🔍 Deduped conversations:', deduped);
           setConversations(deduped);
         }
       } catch (error) {
@@ -591,54 +575,37 @@ const Messages = () => {
 
   // Merge conversations and friends for sidebar
   // Prioritize conversations with messages, then friends without conversations
-  const sidebarUsers = [
+  const sidebarUsers = useMemo(() => [
     // First, add ALL conversations (sorted by last message time)
     ...conversations
       .filter(conv => conv.participant.id !== user?.id) // Exclude current user
       .sort((a, b) => new Date(b.lastMessageAt || b.updatedAt).getTime() - new Date(a.lastMessageAt || a.updatedAt).getTime())
-      .map(conv => {
-        console.log('🔍 Processing conversation for sidebar:', {
-          id: conv.id,
-          participant: conv.participant.name,
-          lastMessage: conv.lastMessage,
-          hasConversation: true
-        });
-        return {
-          id: conv.participant.id,
-          name: conv.participant.name,
-          firstName: conv.participant.firstName,
-          lastName: conv.participant.lastName,
-          avatar: conv.participant.avatar,
-          online: conv.participant.online,
-          lastSeen: conv.participant.lastSeen,
-          conversation: conv,
-          unreadCount: conv.unreadCount,
-          lastMessage: conv.lastMessage,
-          lastMessageAt: conv.lastMessageAt,
-          hasConversation: true
-        };
-      }),
+      .map(conv => ({
+        id: conv.participant.id,
+        name: conv.participant.name,
+        firstName: conv.participant.firstName,
+        lastName: conv.participant.lastName,
+        avatar: conv.participant.avatar,
+        online: conv.participant.online,
+        lastSeen: conv.participant.lastSeen,
+        conversation: conv,
+        unreadCount: conv.unreadCount,
+        lastMessage: conv.lastMessage,
+        lastMessageAt: conv.lastMessageAt,
+        hasConversation: true
+      })),
     // Then add friends without conversations (exclude current user)
     ...friends
       .filter(friend => friend.id !== user?.id && !conversations.some(conv => conv.participant.id === friend.id))
-      .map(friend => {
-        console.log('🔍 Processing friend for sidebar:', {
-          id: friend.id,
-          name: friend.name,
-          hasConversation: false
-        });
-        return {
-          ...friend,
-          conversation: null,
-          unreadCount: 0,
-          lastMessage: null,
-          lastMessageAt: null,
-          hasConversation: false
-        };
-      })
-  ];
-
-  console.log('🔍 Final sidebarUsers array:', sidebarUsers);
+      .map(friend => ({
+        ...friend,
+        conversation: null,
+        unreadCount: 0,
+        lastMessage: null,
+        lastMessageAt: null,
+        hasConversation: false
+      }))
+  ], [conversations, friends, user?.id]);
 
   // Filter by search (memoized)
   const filteredSidebarUsers = useMemo(() => {
@@ -764,21 +731,12 @@ const Messages = () => {
                           
                           <p className="text-sm text-zinc-400 truncate">
                             {(() => {
-                              console.log('🔍 Rendering message preview for:', sidebarUser.name, {
-                                lastMessage: sidebarUser.lastMessage,
-                                hasConversation: sidebarUser.hasConversation,
-                                conversation: sidebarUser.conversation
-                              });
-                              
                               if (sidebarUser.lastMessage) {
                                 const preview = `${sidebarUser.lastMessage.senderId?.toString() === user?.id ? 'You: ' : ''}${sidebarUser.lastMessage.content}`;
-                                console.log('🔍 Message preview:', preview);
                                 return preview;
                               } else if (sidebarUser.hasConversation) {
-                                console.log('🔍 Has conversation but no last message');
                                 return 'Start a conversation';
                               } else {
-                                console.log('🔍 No conversation');
                                 return 'No messages yet';
                               }
                             })()}

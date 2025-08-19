@@ -1,109 +1,163 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AudixTopbar from "@/components/AudixTopbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import SongCard from "@/components/SongCard";
-import { Search, Music, Mic, Radio, User } from "lucide-react";
+import { Search, Music, Mic, Radio, User, Loader2 } from "lucide-react";
+import apiService from "@/services/api";
+
+interface SearchResult {
+  _id: string;
+  title: string;
+  artist: string;
+  imageUrl?: string;
+  duration?: number;
+  album?: string;
+  popularity?: number;
+  previewUrl?: string;
+}
+
+interface SearchResults {
+  songs?: SearchResult[];
+  artists?: any[];
+  albums?: any[];
+  playlists?: any[];
+}
 
 const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [searchResults, setSearchResults] = useState<SearchResults>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-  // Mock search results
-  const searchResults = [
-    {
-      _id: "1",
-      title: "Blinding Lights",
-      artist: "The Weeknd",
-      imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
-      duration: 200
-    },
-    {
-      _id: "2",
-      title: "Watermelon Sugar",
-      artist: "Harry Styles",
-      imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center",
-      duration: 174
-    },
-    {
-      _id: "3",
-      title: "Levitating",
-      artist: "Dua Lipa",
-      imageUrl: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=400&fit=crop&crop=center",
-      duration: 203
-    },
-    {
-      _id: "4",
-      title: "Good 4 U",
-      artist: "Olivia Rodrigo",
-      imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center",
-      duration: 178
+  // Load recent searches from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('recentSearches');
+    if (saved) {
+      setRecentSearches(JSON.parse(saved));
     }
-  ];
+  }, []);
+
+  // Save recent searches to localStorage
+  const saveRecentSearch = (query: string) => {
+    if (!query.trim()) return;
+    
+    const updated = [query, ...recentSearches.filter(q => q !== query)].slice(0, 10);
+    setRecentSearches(updated);
+    localStorage.setItem('recentSearches', JSON.stringify(updated));
+  };
+
+  // Perform search
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults({});
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const results = await apiService.searchMusic(query, activeCategory, 20, 'all');
+      setSearchResults(results);
+      saveRecentSearch(query);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults({});
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle search input change with debouncing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim()) {
+        performSearch(searchQuery);
+      } else {
+        setSearchResults({});
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, activeCategory]);
+
+  // Handle search submission
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      performSearch(searchQuery);
+    }
+  };
+
+  // Handle recent search click
+  const handleRecentSearchClick = (query: string) => {
+    setSearchQuery(query);
+    performSearch(query);
+  };
 
   const categories = [
     { id: "all", label: "All", icon: Search },
-    { id: "songs", label: "Songs", icon: Music },
-    { id: "artists", label: "Artists", icon: Mic },
-    { id: "albums", label: "Albums", icon: Radio },
-    { id: "playlists", label: "Playlists", icon: User }
+    { id: "song", label: "Songs", icon: Music },
+    { id: "artist", label: "Artists", icon: Mic },
+    { id: "album", label: "Albums", icon: Radio },
+    { id: "playlist", label: "Playlists", icon: User }
   ];
 
   const browseCategories = [
     {
       id: "pop",
       title: "Pop",
-      color: "from-pink-500 to-rose-600",
-      image: "https://via.placeholder.com/200x200/ec4899/ffffff?text=POP"
+      color: "bg-gradient-to-br from-pink-500 to-purple-600"
+    },
+    {
+      id: "hip-hop",
+      title: "Hip Hop",
+      color: "bg-gradient-to-br from-orange-500 to-red-600"
     },
     {
       id: "rock",
       title: "Rock",
-      color: "from-red-500 to-orange-600",
-      image: "https://via.placeholder.com/200x200/ef4444/ffffff?text=ROCK"
-    },
-    {
-      id: "hiphop",
-      title: "Hip Hop",
-      color: "from-purple-500 to-violet-600",
-      image: "https://via.placeholder.com/200x200/8b5cf6/ffffff?text=HIP+HOP"
+      color: "bg-gradient-to-br from-gray-600 to-gray-800"
     },
     {
       id: "electronic",
       title: "Electronic",
-      color: "from-blue-500 to-cyan-600",
-      image: "https://via.placeholder.com/200x200/3b82f6/ffffff?text=EDM"
+      color: "bg-gradient-to-br from-blue-500 to-cyan-600"
     },
     {
       id: "jazz",
       title: "Jazz",
-      color: "from-amber-500 to-yellow-600",
-      image: "https://via.placeholder.com/200x200/f59e0b/ffffff?text=JAZZ"
+      color: "bg-gradient-to-br from-yellow-500 to-orange-600"
     },
     {
       id: "classical",
       title: "Classical",
-      color: "from-emerald-500 to-green-600",
-      image: "https://via.placeholder.com/200x200/10b981/ffffff?text=CLASSICAL"
+      color: "bg-gradient-to-br from-green-500 to-teal-600"
     }
   ];
 
   return (
-    <main className='rounded-md overflow-hidden h-full bg-gradient-to-b from-zinc-800 to-zinc-900'>
+    <main className="flex-1 bg-zinc-900 text-white">
       <AudixTopbar />
-      <ScrollArea className='h-[calc(100vh-180px)]'>
-        <div className="p-4 sm:p-6">
-          {/* Search Input */}
+      <ScrollArea className="h-[calc(100vh-80px)]">
+        <div className="p-6 max-w-7xl mx-auto">
+          {/* Search Header */}
           <div className="mb-8">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 h-5 w-5" />
+            <h1 className="text-4xl font-bold text-white mb-2">Search</h1>
+            <p className="text-zinc-400">Discover millions of songs, artists, and albums</p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mb-8">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 h-5 w-5" />
               <input
                 type="text"
                 placeholder="What do you want to listen to?"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-zinc-800 border border-zinc-700 rounded-full text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full bg-zinc-800 text-white placeholder-zinc-400 rounded-full py-4 pl-12 pr-4 text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-zinc-700 transition-all duration-200"
               />
-            </div>
+            </form>
           </div>
 
           {searchQuery ? (
@@ -129,65 +183,146 @@ const SearchPage = () => {
                 })}
               </div>
 
-              {/* Search Results */}
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-6">
-                  Search results for "{searchQuery}"
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {searchResults.map(song => (
-                    <SongCard key={song._id} song={song} />
-                  ))}
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-green-500" />
+                  <span className="ml-3 text-zinc-400">Searching...</span>
                 </div>
-              </div>
+              )}
+
+              {/* Search Results */}
+              {!isLoading && (
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-6">
+                    Search results for "{searchQuery}"
+                  </h2>
+                  
+                  {/* Songs Results */}
+                  {searchResults.songs && searchResults.songs.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-semibold text-white mb-4">Songs</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {searchResults.songs.map(song => (
+                          <SongCard key={song._id} song={song} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Artists Results */}
+                  {searchResults.artists && searchResults.artists.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-semibold text-white mb-4">Artists</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {searchResults.artists.map(artist => (
+                          <div key={artist._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
+                            <div className="w-full aspect-square bg-zinc-700 rounded-md mb-4 flex items-center justify-center">
+                              <Mic className="h-12 w-12 text-zinc-400" />
+                            </div>
+                            <h4 className="font-semibold text-white truncate">{artist._id}</h4>
+                            <p className="text-sm text-zinc-400">{artist.songCount} songs</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Albums Results */}
+                  {searchResults.albums && searchResults.albums.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-semibold text-white mb-4">Albums</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {searchResults.albums.map(album => (
+                          <div key={album._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
+                            <div className="w-full aspect-square bg-zinc-700 rounded-md mb-4 flex items-center justify-center">
+                              <Radio className="h-12 w-12 text-zinc-400" />
+                            </div>
+                            <h4 className="font-semibold text-white truncate">{album._id}</h4>
+                            <p className="text-sm text-zinc-400">{album.artist}</p>
+                            <p className="text-sm text-zinc-400">{album.songCount} songs</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No Results */}
+                  {(!searchResults.songs || searchResults.songs.length === 0) &&
+                   (!searchResults.artists || searchResults.artists.length === 0) &&
+                   (!searchResults.albums || searchResults.albums.length === 0) && (
+                    <div className="text-center py-12">
+                      <Music className="h-16 w-16 text-zinc-600 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-zinc-400 mb-2">No results found</h3>
+                      <p className="text-zinc-500">Try adjusting your search terms or browse categories below</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <>
               {/* Browse All */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-white mb-6">Browse all</h2>
+                <h2 className="text-xl font-bold text-white mb-4">Browse All</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {browseCategories.map((category) => (
                     <div
                       key={category.id}
-                      className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group hover:scale-105 transition-transform"
+                      className={`${category.color} aspect-square rounded-lg p-4 flex items-end cursor-pointer hover:scale-105 transition-transform duration-200`}
                     >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${category.color}`} />
-                      <div className="absolute inset-0 p-4 flex flex-col justify-between">
-                        <h3 className="text-white font-bold text-lg">{category.title}</h3>
-                        <div className="self-end">
-                          <div className="w-16 h-16 bg-black/20 rounded-lg transform rotate-12 group-hover:rotate-6 transition-transform" />
-                        </div>
-                      </div>
+                      <h3 className="text-white font-bold text-lg">{category.title}</h3>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Recently Searched */}
-              <div className="mb-8">
-                <h2 className="text-xl font-bold text-white mb-4">Recently searched</h2>
-                <div className="space-y-2">
-                  {["The Weeknd", "Dua Lipa", "Harry Styles"].map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <div className="w-12 h-12 bg-zinc-700 rounded-full flex items-center justify-center">
-                        <Search className="h-5 w-5 text-zinc-400" />
+              {recentSearches.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-xl font-bold text-white mb-4">Recently searched</h2>
+                  <div className="space-y-2">
+                    {recentSearches.map((item, index) => (
+                      <div
+                        key={index}
+                        onClick={() => handleRecentSearchClick(item)}
+                        className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 rounded-lg cursor-pointer transition-colors"
+                      >
+                        <div className="w-12 h-12 bg-zinc-700 rounded-full flex items-center justify-center">
+                          <Search className="h-5 w-5 text-zinc-400" />
+                        </div>
+                        <span className="text-white">{item}</span>
                       </div>
-                      <span className="text-white">{item}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Popular Searches */}
               <div>
                 <h2 className="text-xl font-bold text-white mb-4">Popular searches</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {searchResults.slice(0, 5).map(song => (
-                    <SongCard key={song._id} song={song} />
+                  {[
+                    { title: "The Weeknd", artist: "Blinding Lights" },
+                    { title: "Dua Lipa", artist: "Levitating" },
+                    { title: "Harry Styles", artist: "Watermelon Sugar" },
+                    { title: "Olivia Rodrigo", artist: "Good 4 U" },
+                    { title: "Ed Sheeran", artist: "Shape of You" }
+                  ].map((song, index) => (
+                    <div
+                      key={index}
+                      onClick={() => {
+                        setSearchQuery(song.title);
+                        performSearch(song.title);
+                      }}
+                      className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300 cursor-pointer"
+                    >
+                      <div className="w-full aspect-square bg-zinc-700 rounded-md mb-4 flex items-center justify-center">
+                        <Music className="h-12 w-12 text-zinc-400" />
+                      </div>
+                      <h3 className="font-semibold text-white truncate">{song.title}</h3>
+                      <p className="text-sm text-zinc-400 truncate">{song.artist}</p>
+                    </div>
                   ))}
                 </div>
               </div>

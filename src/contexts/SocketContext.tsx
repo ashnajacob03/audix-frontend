@@ -73,16 +73,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    console.log('🔍 SocketContext useEffect triggered:', {
-      isAuthenticated,
-      isLoading,
-      user: user ? `${user.firstName} ${user.lastName}` : 'No user',
-      hasToken: !!localStorage.getItem('accessToken')
-    });
-
     // Don't try to connect during loading or if not authenticated
     if (isLoading) {
-      console.log('⏳ Auth still loading, skipping socket connection');
       return;
     }
 
@@ -95,9 +87,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
       // Create socket connection
       const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3002';
-      
-      console.log('🔌 Attempting to connect to Socket.IO server:', socketUrl);
-      console.log('🔑 Using token:', token ? 'Token present' : 'No token');
       
       const newSocket = io(socketUrl, {
         auth: { token },
@@ -113,7 +102,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
       // Connection events
       newSocket.on('connect', () => {
-        console.log('✅ Connected to Socket.IO server:', socketUrl);
         setIsConnected(true);
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -121,26 +109,18 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       });
 
       newSocket.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
         setIsConnected(false);
         setOnlineUsers(new Map());
         setTypingUsers(new Map());
       });
 
       newSocket.on('connect_error', (error) => {
-        console.error('🚨 Socket connection error details:', {
-          message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
-        });
         console.error('Socket connection error:', error.message || error);
         setIsConnected(false);
         
         // Only retry if it's not an authentication error
         if (!error.message?.includes('Authentication error')) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect...');
             newSocket.connect();
           }, 3000);
         } else {
@@ -254,10 +234,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setTypingUsers(new Map());
       };
     } else {
-      console.log('🚫 Socket connection skipped - user not authenticated or no user data');
       // Clean up any existing socket connection
       if (socket) {
-        console.log('🧹 Cleaning up existing socket connection');
         socket.disconnect();
         setSocket(null);
         setIsConnected(false);

@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useCustomAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import VerifyOTP from './pages/VerifyOTP';
@@ -62,8 +63,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <SocketProvider>
-      <Routes>
+    <AudioPlayerProvider>
+      <SocketProvider>
+        <Routes>
         {/* Public routes */}
         <Route 
           path="/login" 
@@ -181,7 +183,8 @@ function App() {
         </Route>
       </Routes>
       <Toaster />
-    </SocketProvider>
+        </SocketProvider>
+      </AudioPlayerProvider>
   );
 }
 

@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 
 const formatTime = (time: number) => {
   if (isNaN(time)) return "0:00";
@@ -30,42 +31,42 @@ const formatTime = (time: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
-// Mock current song data - replace with your actual state management
-const mockCurrentSong = {
-  _id: "1",
-  title: "Blinding Lights",
-  artist: "The Weeknd",
-  imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=56&h=56&fit=crop&crop=center"
-};
-
 export const PlaybackControls = () => {
-  const [volume, setVolume] = useState(1);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(180); // 3 minutes mock duration
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentSong] = useState(mockCurrentSong); // Mock current song
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const {
+    currentSong,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    pause,
+    resume,
+    next,
+    previous,
+    seek,
+    setVolume
+  } = useAudioPlayer();
 
   // Handle play/pause
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      pause();
+    } else {
+      resume();
+    }
   };
 
   const handleNext = () => {
-    // Mock next functionality
-    console.log("Next song");
+    next();
   };
 
   const handlePrevious = () => {
-    // Mock previous functionality
-    console.log("Previous song");
+    previous();
   };
 
   // Handle seeking
   const handleSeek = (value: number[]) => {
     const newTime = value[0];
-    setCurrentTime(newTime);
+    seek(newTime);
   };
 
   // Handle volume changes
@@ -74,21 +75,7 @@ export const PlaybackControls = () => {
     setVolume(newVolume);
   };
 
-  // Mock time update
-  useEffect(() => {
-    if (isPlaying) {
-      const interval = setInterval(() => {
-        setCurrentTime(prev => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [isPlaying, duration]);
+
 
   return (
     <div className="h-[100px] bg-gradient-to-b from-zinc-900 to-black border-t border-white/5 p-4">

@@ -37,8 +37,11 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem('accessToken');
-    
-    const config = {
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const max429Retries = 3;
+
+    const baseConfig = {
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -47,59 +50,86 @@ class ApiService {
       ...options,
     };
 
+    let config = { ...baseConfig };
+
     if (config.body && typeof config.body === 'object') {
       config.body = JSON.stringify(config.body);
     }
 
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+    for (let attempt = 0; attempt <= max429Retries; attempt++) {
+      try {
+        const response = await fetch(url, config);
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          data = undefined;
+        }
 
-      if (!response.ok) {
-        // Handle token expiration
-        if (response.status === 401 && data.code === 'TOKEN_EXPIRED') {
-          const refreshToken = localStorage.getItem('refreshToken');
-          if (refreshToken) {
-            try {
-              const refreshResponse = await this.refreshToken(refreshToken);
-              const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.tokens;
-              
-              localStorage.setItem('accessToken', accessToken);
-              localStorage.setItem('refreshToken', newRefreshToken);
-              
-              // Retry original request with new token
-              config.headers.Authorization = `Bearer ${accessToken}`;
-              const retryResponse = await fetch(url, config);
-              const retryData = await retryResponse.json();
-              
-              if (!retryResponse.ok) {
-                throw new Error(retryData.message || 'API request failed');
+        if (!response.ok) {
+          // Handle token expiration
+          if (response.status === 401 && data && data.code === 'TOKEN_EXPIRED') {
+            const refreshToken = localStorage.getItem('refreshToken');
+            if (refreshToken) {
+              try {
+                const refreshResponse = await this.refreshToken(refreshToken);
+                const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.tokens;
+
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', newRefreshToken);
+
+                // Retry original request with new token (do not advance 429 attempt counter)
+                config.headers = {
+                  ...config.headers,
+                  Authorization: `Bearer ${accessToken}`,
+                };
+                const retryResponse = await fetch(url, config);
+                const retryData = await retryResponse.json();
+
+                if (!retryResponse.ok) {
+                  // If still not ok after refresh, throw
+                  throw new Error(retryData?.message || 'API request failed');
+                }
+
+                return retryData;
+              } catch (refreshError) {
+                // Refresh failed, redirect to login
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                window.dispatchEvent(new CustomEvent('authTokenExpired'));
+                throw new Error('Session expired. Please log in again.');
               }
-              
-              return retryData;
-            } catch (refreshError) {
-              // Refresh failed, redirect to login
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
-              window.dispatchEvent(new CustomEvent('authTokenExpired'));
-              throw new Error('Session expired. Please log in again.');
             }
           }
-        }
-        
-        // Handle validation errors
-        if (response.status === 400 && data.errors && Array.isArray(data.errors)) {
-          const errorMessages = data.errors.map(error => error.msg).join(', ');
-          throw new Error(errorMessages);
-        }
-        
-        throw new Error(data.message || 'API request failed');
-      }
 
-      return data;
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
+          // Handle rate limiting with backoff
+          if (response.status === 429 && attempt < max429Retries) {
+            const retryAfterHeader = response.headers.get('Retry-After');
+            const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : 0;
+            const backoffMs = retryAfterMs || Math.min(1000 * 2 ** attempt + Math.random() * 250, 8000);
+            await sleep(backoffMs);
+            continue; // retry loop
+          }
+
+          // Handle validation errors
+          if (response.status === 400 && data && data.errors && Array.isArray(data.errors)) {
+            const errorMessages = data.errors.map(error => error.msg).join(', ');
+            throw new Error(errorMessages);
+          }
+
+          throw new Error((data && data.message) || 'API request failed');
+        }
+
+        // OK
+        return data;
+      } catch (error) {
+        // Network or parsing error: if we were handling 429, the loop would continue.
+        // For other errors, rethrow immediately.
+        if (attempt >= max429Retries) {
+          console.error('API Error:', error);
+          throw error;
+        }
+      }
     }
   }
 
@@ -150,7 +180,7 @@ class ApiService {
     });
 
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.message || 'Token refresh failed');
     }

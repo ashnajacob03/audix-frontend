@@ -1,6 +1,7 @@
 import { Play, Pause } from "lucide-react";
 import { useState } from "react";
 import FallbackImage from "./FallbackImage";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 
 interface Song {
   _id: string;
@@ -8,6 +9,8 @@ interface Song {
   artist: string;
   imageUrl: string;
   duration?: number;
+  previewUrl?: string;
+  spotifyId?: string;
 }
 
 interface SongCardProps {
@@ -16,13 +19,26 @@ interface SongCardProps {
 
 const SongCard = ({ song }: SongCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
+  
+  // Check if this song is currently playing
+  const isThisSongPlaying = currentSong?._id === song._id && isPlaying;
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsPlaying(!isPlaying);
-    // Add your play logic here
+    
+    if (currentSong?._id === song._id) {
+      if (isPlaying) {
+        pause();
+      } else {
+        resume();
+      }
+      return;
+    }
+
+    // If another song is playing, play this one
+    playSong(song);
   };
 
   return (
@@ -47,7 +63,7 @@ const SongCard = ({ song }: SongCardProps) => {
           }`}
         >
           <button onClick={handlePlayClick} className="flex items-center justify-center">
-            {isPlaying ? (
+            {isThisSongPlaying ? (
               <Pause className="h-4 w-4" />
             ) : (
               <Play className="h-4 w-4 ml-0.5" />

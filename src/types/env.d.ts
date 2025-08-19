@@ -27,3 +27,8 @@ declare module '@/services/adminApi' {
 
   export default adminApi;
 }
+
+declare module "@/services/api" {
+	const apiService: any;
+	export default apiService;
+}
