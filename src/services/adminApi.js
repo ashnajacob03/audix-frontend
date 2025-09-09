@@ -23,12 +23,57 @@ const adminApi = {
     }
   },
 
+  // Create user
+  createUser: async (userData) => {
+    try {
+      const response = await api.post('/admin/users', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  },
+
+  // Update user
   updateUser: async (userId, updates) => {
     try {
       const response = await api.put(`/admin/users/${userId}`, updates);
       return response.data;
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
+  // Delete user
+  deleteUser: async (userId) => {
+    try {
+      const response = await api.delete(`/admin/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  },
+
+  // Bulk delete users
+  bulkDeleteUsers: async (userIds) => {
+    try {
+      const response = await api.delete('/admin/users/bulk', { data: { userIds } });
+      return response.data;
+    } catch (error) {
+      console.error('Error bulk deleting users:', error);
+      throw error;
+    }
+  },
+
+  // Bulk update users
+  bulkUpdateUsers: async (userIds, updates) => {
+    try {
+      const response = await api.put('/admin/users/bulk', { userIds, updates });
+      return response.data;
+    } catch (error) {
+      console.error('Error bulk updating users:', error);
       throw error;
     }
   },
@@ -46,38 +91,6 @@ const adminApi = {
     }
   },
 
-  // System status
-  getSystemStatus: async () => {
-    try {
-      const response = await api.get('/admin/system-status');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching system status:', error);
-      throw error;
-    }
-  },
-
-  // Broadcast notifications
-  sendBroadcast: async (broadcastData) => {
-    try {
-      const response = await api.post('/admin/broadcast', broadcastData);
-      return response.data;
-    } catch (error) {
-      console.error('Error sending broadcast:', error);
-      throw error;
-    }
-  },
-
-  // System logs
-  getLogs: async (params = {}) => {
-    try {
-      const response = await api.get('/admin/logs', { params });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching logs:', error);
-      throw error;
-    }
-  }
 };
 
 export default adminApi; 

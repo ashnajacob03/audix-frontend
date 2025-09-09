@@ -75,7 +75,10 @@ export const PlaybackControls = () => {
     setVolume(newVolume);
   };
 
-
+  // Don't render if no current song
+  if (!currentSong) {
+    return null;
+  }
 
   return (
     <div className="h-[100px] bg-gradient-to-b from-zinc-900 to-black border-t border-white/5 p-4">

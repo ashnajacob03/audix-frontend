@@ -86,11 +86,17 @@ const normalizeSongForCard = (song: any) => ({
 const Home = () => {
 	const [activeTab, setActiveTab] = useState("all");
 	const [featuredSongs, setFeaturedSongs] = useState<SongItem[]>([]);
+	const [featuredPool, setFeaturedPool] = useState<SongItem[]>([]);
 	const [madeForYouSongs, setMadeForYouSongs] = useState<SongItem[]>([]);
 	const [trendingSongs, setTrendingSongs] = useState<SongItem[]>([]);
+	const [trendingPool, setTrendingPool] = useState<SongItem[]>([]);
+	const [randomSongs, setRandomSongs] = useState<SongItem[]>([]);
+	const [popularPool, setPopularPool] = useState<SongItem[]>([]);
 	const [moodSongs, setMoodSongs] = useState<Record<string, SongItem[]>>({});
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
+	const [showAllFeatured, setShowAllFeatured] = useState(false);
+	const [showAllTrending, setShowAllTrending] = useState(false);
 
 	const recentSearches = useMemo<string[]>(() => {
 		try {
@@ -101,6 +107,28 @@ const Home = () => {
 		}
 	}, []);
 
+	const featuredMessage = useMemo(() => {
+		if (randomSongs.length > 0) {
+			return 'Fresh random picks for you.';
+		}
+		if (!recentSearches || recentSearches.length === 0) {
+			return 'Handpicked tracks to get you started.';
+		}
+		const freq: Record<string, number> = {};
+		recentSearches.forEach(q => {
+			const key = (q || '').trim().toLowerCase();
+			if (!key) return;
+			freq[key] = (freq[key] || 0) + 1;
+		});
+		const top = Object.entries(freq)
+			.sort((a,b) => b[1]-a[1])
+			.map(([q]) => q)
+			.slice(0, 2)
+			.map(s => s.replace(/\b\w/g, c => c.toUpperCase()))
+			.join(', ');
+		return top ? `Inspired by your searches: ${top}` : 'Handpicked tracks to get you started.';
+	}, [recentSearches, randomSongs.length]);
+
 	useEffect(() => {
 		let isMounted = true;
 		const loadHomeData = async () => {
@@ -109,20 +137,49 @@ const Home = () => {
 			try {
 				const q1 = recentSearches[0];
 				const q2 = recentSearches[1];
-				const [featRes, madeRes, trendRes] = await Promise.all([
+				const [featRes, madeRes, popularRes] = await Promise.all([
 					q1 ? apiService.searchMusic(q1, 'song', 10, 'local') : apiService.getPopularSongs(10),
 					q2 ? apiService.searchMusic(q2, 'song', 10, 'local') : apiService.getPopularSongs(10),
-					apiService.getPopularSongs(10)
+					apiService.getPopularSongs(50)
 				]);
 
-				const featSongs = (featRes?.songs || featRes || []).slice(0, 5);
+				const featFull = (featRes?.songs || featRes || []) as SongItem[];
+				const featSongs = featFull.slice(0, 5);
 				const madeSongs = (madeRes?.songs || madeRes || []).slice(0, 10);
-				const trendSongs = (trendRes?.songs || trendRes || []).slice(0, 10);
+
+				// Trending based on most frequently searched queries
+				const freqMap: Record<string, number> = {};
+				recentSearches.forEach(q => {
+					const key = (q || '').trim().toLowerCase();
+					if (!key) return;
+					freqMap[key] = (freqMap[key] || 0) + 1;
+				});
+				const topQueries = Object.entries(freqMap)
+					.sort((a,b) => b[1]-a[1])
+					.map(([q]) => q)
+					.slice(0, 3);
+				const trendResults = await Promise.all(
+					(topQueries.length ? topQueries : recentSearches.slice(0,3)).map(q => 
+						apiService.searchMusic(q, 'song', 10, 'local')
+					)
+				);
+				const trendFull = trendResults
+					.flatMap(r => (r?.songs || r || []) as SongItem[]);
+				const trendSongs = trendFull.slice(0, 10);
+
+				// Random picks from a larger pool (shuffle then slice)
+				const pool = (popularRes?.songs || popularRes || []) as SongItem[];
+				const shuffled = [...pool].sort(() => Math.random() - 0.5);
+				const random = shuffled.slice(0, 10);
 
 				if (!isMounted) return;
+				setFeaturedPool(featFull);
 				setFeaturedSongs(featSongs as SongItem[]);
 				setMadeForYouSongs(madeSongs as SongItem[]);
+				setTrendingPool(trendFull);
 				setTrendingSongs(trendSongs as SongItem[]);
+				setPopularPool(pool);
+				setRandomSongs(random as SongItem[]);
 			} catch (e: any) {
 				if (!isMounted) return;
 				setError(e?.message || 'Failed to load songs');
@@ -141,21 +198,32 @@ const Home = () => {
 		const fetchMoods = async () => {
 			try {
 				const map: Record<string, SongItem[]> = {};
-				for (const m of availableMoods) {
-					const genre = MOOD_GENRE_MAP[m.value] || m.value;
-					try {
-						const list = await apiService.getSongsByGenre(genre, 3);
-						map[m.value] = (list?.songs || list || []) as SongItem[];
-					} catch {
-						map[m.value] = [];
+				// Process moods in batches to avoid overwhelming the server
+				const batchSize = 3;
+				for (let i = 0; i < availableMoods.length; i += batchSize) {
+					const batch = availableMoods.slice(i, i + batchSize);
+					const batchPromises = batch.map(async (m) => {
+						const genre = MOOD_GENRE_MAP[m.value] || m.value;
+						try {
+							const list = await apiService.getSongsByGenre(genre, 3);
+							return { mood: m.value, songs: (list?.songs || list || []) as SongItem[] };
+						} catch (error) {
+							console.warn(`Failed to fetch songs for mood ${m.value}:`, error);
+							return { mood: m.value, songs: [] };
+						}
+					});
+					const batchResults = await Promise.all(batchPromises);
+					batchResults.forEach(({ mood, songs }) => {
+						map[mood] = songs;
+					});
+					if (i + batchSize < availableMoods.length) {
+						await new Promise((r) => setTimeout(r, 300));
 					}
-					// small delay to avoid hammering server
-					await new Promise((r) => setTimeout(r, 150));
 				}
 				if (!isMounted) return;
 				setMoodSongs(map);
-			} catch {
-				// ignore
+			} catch (error) {
+				console.error('Error fetching mood songs:', error);
 			}
 		};
 		fetchMoods();
@@ -168,35 +236,13 @@ const Home = () => {
 		return foundMood ? foundMood.label : mood.charAt(0).toUpperCase() + mood.slice(1).replace('_', ' ');
 	};
 
-	// Render mood card component
-	const MoodCard = ({ mood, isActive, onClick }: { mood: string, isActive: boolean, onClick: () => void }) => {
-		const MoodIcon = MOOD_ICONS[mood] || Music;
-		const colorClass = MOOD_COLORS[mood] || "from-gray-700 to-gray-800";
-		
-		return (
-			<div 
-				onClick={onClick}
-				className={`
-					cursor-pointer rounded-xl overflow-hidden transition-all duration-300
-					${isActive ? 'ring-2 ring-white scale-105' : 'opacity-80 hover:opacity-100 hover:scale-105'}
-				`}
-			>
-				<div className={`bg-gradient-to-br ${colorClass} p-4 h-full flex flex-col items-center justify-center`}>
-					<MoodIcon className="h-10 w-10 mb-2" />
-					<span className="font-semibold text-center">{getMoodLabel(mood)}</span>
-				</div>
-			</div>
-		);
-	};
+	// NOTE: MoodCard is kept for future sections; not used in this simplified layout
 
 	return (
 		<main className='rounded-md overflow-hidden h-full bg-gradient-to-b from-zinc-800 to-zinc-900'>
 			<AudixTopbar />
 			<ScrollArea className='h-[calc(100vh-180px)]'>
-        <div className="p-4 sm:p-6">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-6">
-            Listen to your favorite songs
-          </h1>
+	        <div className="p-4 sm:p-6">
 
 					{isLoading && (
 						<div className="flex items-center gap-3 text-zinc-400 mb-6">
@@ -211,14 +257,23 @@ const Home = () => {
 
 					{/* Featured Section */}
 					<div className="mb-8">
-						<div className="flex items-center justify-between mb-4">
+						<div className="flex items-center justify-between mb-1">
 							<h2 className="text-xl font-bold">Featured</h2>
-							<span className="text-sm text-zinc-400 hover:text-white cursor-pointer">
-								Show all
+							<span
+								className="text-sm text-zinc-400 hover:text-white cursor-pointer"
+								onClick={() => setShowAllFeatured(v => !v)}
+							>
+								{showAllFeatured ? 'Show less' : 'Show all'}
 							</span>
 						</div>
+						<p className="text-sm text-zinc-400 mb-3">{featuredMessage}</p>
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-							{featuredSongs.map(song => (
+							{(
+								(() => {
+									const base = randomSongs.length ? (showAllFeatured ? popularPool : randomSongs) : (showAllFeatured ? featuredPool : featuredSongs);
+									return base;
+								})()
+							).map(song => (
 								<SongCard key={song._id} song={normalizeSongForCard(song)} />
 							))}
 						</div>
@@ -226,107 +281,26 @@ const Home = () => {
 
 					{/* Main music sections */}
 					<div className='space-y-8'>
-						{/* Made For You */}
-						<div>
-							<div className="flex items-center justify-between mb-4">
-								<h2 className="text-xl font-bold">Made For You</h2>
-								<span className="text-sm text-zinc-400 hover:text-white cursor-pointer">
-									Show all
-								</span>
-							</div>
-							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-								{madeForYouSongs.map(song => (
-									<SongCard key={song._id} song={normalizeSongForCard(song)} />
-								))}
-							</div>
-						</div>
-
 						{/* Trending */}
 						<div>
 							<div className="flex items-center justify-between mb-4">
-								<h2 className="text-xl font-bold">Trending</h2>
-								<span className="text-sm text-zinc-400 hover:text-white cursor-pointer">
-									Show all
+								<h2 className="text-xl font-bold">Trending for You</h2>
+								<span
+									className="text-sm text-zinc-400 hover:text-white cursor-pointer"
+									onClick={() => setShowAllTrending(v => !v)}
+								>
+									{showAllTrending ? 'Show less' : 'Show all'}
 								</span>
 							</div>
 							<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-								{trendingSongs.map(song => (
+								{(showAllTrending ? trendingPool : trendingSongs).map(song => (
 									<SongCard key={song._id} song={normalizeSongForCard(song)} />
 								))}
 							</div>
 						</div>
 					</div>
-
-					{/* Mood-based sections with visual cards */}
-					<div className="mt-10 mb-12">
-						<h2 className="text-xl sm:text-2xl font-bold mb-6">Browse by Mood</h2>
 						
-						{/* Mood Cards Grid */}
-						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-8">
-							<div 
-								onClick={() => setActiveTab("all")}
-								className={`
-									cursor-pointer rounded-xl overflow-hidden transition-all duration-300
-									${activeTab === "all" ? 'ring-2 ring-white scale-105' : 'opacity-80 hover:opacity-100 hover:scale-105'}
-								`}
-							>
-								<div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 h-full flex flex-col items-center justify-center">
-									<Music className="h-10 w-10 mb-2" />
-									<span className="font-semibold text-center">All</span>
-								</div>
-							</div>
-							
-							{availableMoods.map((mood) => (
-								<MoodCard 
-									key={mood.value} 
-									mood={mood.value} 
-									isActive={activeTab === mood.value} 
-									onClick={() => setActiveTab(mood.value)} 
-								/>
-							))}
-						</div>
-						
-						{/* Content Area */}
-						<div className="mt-6">
-							{activeTab === "all" ? (
-								<div className="space-y-12">
-									{availableMoods.map((mood) => {
-										const MoodIcon = MOOD_ICONS[mood.value] || Music;
-										return (
-											<div key={mood.value} className="bg-zinc-800/30 p-4 rounded-lg">
-												<div className="flex items-center gap-3 mb-4">
-													<MoodIcon className="h-6 w-6" />
-													<h3 className="text-xl font-bold">{getMoodLabel(mood.value)}</h3>
-												</div>
-												<div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-													{(moodSongs[mood.value] || []).map(song => (
-														<SongCard key={song._id} song={normalizeSongForCard(song)} />
-													))}
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							) : (
-								<div className="bg-zinc-800/30 p-4 rounded-lg">
-									<div className="flex items-center gap-3 mb-6">
-										{(() => {
-											const ActiveMoodIcon = MOOD_ICONS[activeTab] || Music;
-											return <ActiveMoodIcon className="h-6 w-6" />;
-										})()}
-										<h3 className="text-xl font-bold">{getMoodLabel(activeTab)}</h3>
-									</div>
-									
-									<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-										{(moodSongs[activeTab] || []).map(song => (
-											<SongCard key={song._id} song={normalizeSongForCard(song)} />
-										))}
-									</div>
-								</div>
-							)}
-						</div>
 					</div>
-				</div>
 			</ScrollArea>
 		</main>
 	);

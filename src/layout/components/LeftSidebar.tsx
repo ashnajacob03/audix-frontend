@@ -3,74 +3,61 @@ import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Music } from "lucide-react";
-import { useState } from "react";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";
+import apiService from "@/services/api";
+
+
+type SongItem = {
+	_id?: string;
+	title: string;
+	artist?: string;
+	imageUrl?: string;
+};
 
 const LeftSidebar = () => {
 	const { isAuthenticated } = useCustomAuth();
-	const [isLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [recentSongs, setRecentSongs] = useState<SongItem[]>([]);
 
-	// Mock playlists data - you can replace this with actual data
-	const playlists = [
-		{
-			id: "1",
-			title: "Yoga Vibes",
-			description: "Vibrations, Meditation, Roxette and more",
-			author: "Your Library",
-			color: "from-purple-500 to-pink-600",
-			imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=crop&crop=center" // Yoga/meditation scene
-		},
-		{
-			id: "2",
-			title: "Daily Mix 1",
-			description: "Sound Bath, Emilian...",
-			author: "Your Library",
-			color: "from-blue-500 to-cyan-600",
-			imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center" // Vinyl records
-		},
-		{
-			id: "3",
-			title: "StreamBeats - EDM",
-			description: "StreamBeats Official Playlist",
-			author: "Your Library",
-			color: "from-red-500 to-orange-600",
-			imageUrl: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center" // DJ/Electronic music setup
-		},
-		{
-			id: "4",
-			title: "StreamBeats - Synthwave",
-			description: "THE LIFE BREAKS EXPERIENCE",
-			author: "Your Library",
-			color: "from-indigo-500 to-purple-600",
-			imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=400&fit=crop&crop=center" // Neon/synthwave aesthetic
-		},
-		{
-			id: "5",
-			title: "GOING PROYOGA",
-			description: "MONOCLE RADIO PODCAST",
-			author: "Your Library",
-			color: "from-green-500 to-emerald-600",
-			imageUrl: "https://images.unsplash.com/photo-1588392382834-a891154bca4d?w=400&h=400&fit=crop&crop=center" // Peaceful yoga/nature
-		},
-		{
-			id: "6",
-			title: "StreamBeats - Lofi",
-			description: "Only A Dream - Beatsole, Kimberly Hale",
-			author: "Your Library",
-			color: "from-yellow-500 to-orange-600",
-			imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center" // Cozy headphones/lofi vibe
-		},
-		{
-			id: "7",
-			title: "Test Fallback",
-			description: "This will show fallback image",
-			author: "Your Library",
-			color: "from-gray-500 to-slate-600",
-			imageUrl: "https://broken-url-for-testing.com/image.jpg" // Intentionally broken URL
-		},
-	];
+	const recentSearches = useMemo<string[]>(() => {
+		try {
+			const saved = localStorage.getItem('recentSearches');
+			const arr = saved ? JSON.parse(saved) : [];
+			return Array.isArray(arr) ? arr : [];
+		} catch {
+			return [];
+		}
+	}, []);
+
+	useEffect(() => {
+		let isMounted = true;
+		const load = async () => {
+			setIsLoading(true);
+			try {
+				const queries = [...recentSearches].reverse().slice(0, 5);
+				const results = await Promise.all(
+					queries.map(q => apiService.searchMusic(q, 'song', 5, 'local'))
+				);
+				const songs: SongItem[] = results.flatMap((res, idx) => {
+					const list = (res?.songs || res || []) as any[];
+					return list.slice(0, 3).map((s: any) => ({
+						_id: s._id || `${queries[idx]}-${s.title}-${s.artist}`,
+						title: s.title,
+						artist: s.artist,
+						imageUrl: s.imageUrl,
+					}));
+				});
+				if (isMounted) setRecentSongs(songs);
+			} finally {
+				if (isMounted) setIsLoading(false);
+			}
+		};
+		load();
+		return () => { isMounted = false; };
+	}, [recentSearches]);
 
 	return (
 		<div className='h-full flex flex-col gap-2 overflow-hidden'>
@@ -106,7 +93,7 @@ const LeftSidebar = () => {
 					{isAuthenticated && (
 						<>
 							<Link
-								to={"/dashboard"}
+								to={"/liked"}
 								className={cn(
 									buttonVariants({
 										variant: "ghost",
@@ -162,25 +149,23 @@ const LeftSidebar = () => {
 						{isLoading ? (
 							<PlaylistSkeleton />
 						) : (
-							playlists.map((playlist) => (
+							recentSongs.map((song, index) => (
 								<div
-									key={playlist.id}
+									key={song._id || `${song.title}-${index}`}
 									className='p-2 hover:bg-zinc-800 rounded-md flex items-center gap-3 group cursor-pointer'
 								>
 									<div className="size-12 rounded-md flex-shrink-0 overflow-hidden relative">
 										<FallbackImage
-											src={playlist.imageUrl}
-											alt={playlist.title}
+											src={(song.imageUrl || '')}
+											alt={song.title}
 											className="size-12 rounded-md"
-											fallbackSeed={playlist.id}
+											fallbackSeed={song.title}
 										/>
-										{/* Subtle gradient overlay for better visual consistency */}
-										<div className={`absolute inset-0 bg-gradient-to-br ${playlist.color} opacity-20 rounded-md`}></div>
 									</div>
 
 									<div className='flex-1 min-w-0 hidden md:block'>
-										<p className='font-medium truncate'>{playlist.title}</p>
-										<p className='text-sm text-zinc-400 truncate'>Playlist • {playlist.author}</p>
+										<p className='font-medium truncate'>{song.title}</p>
+										<p className='text-sm text-zinc-400 truncate'>Song • {song.artist || 'Unknown'}</p>
 									</div>
 								</div>
 							))

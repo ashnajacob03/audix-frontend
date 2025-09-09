@@ -2,13 +2,9 @@ import { useCustomAuth } from "@/contexts/AuthContext";
 import { 
   Crown, 
   Shield, 
-  Settings, 
   LogOut, 
-  User, 
   ChevronDown,
-  Home,
-  Bell,
-  Search
+  Home
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -62,24 +58,6 @@ const AdminTopbar = () => {
           <Home className="w-4 h-4 mr-2" />
           Back to App
         </Link>
-        
-        <button className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-zinc-300 hover:text-white hover:bg-zinc-800"
-        )}>
-          <Search className="w-4 h-4 mr-2" />
-          Search
-        </button>
-        
-        <button className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "text-zinc-300 hover:text-white hover:bg-zinc-800 relative"
-        )}>
-          <Bell className="w-4 h-4" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">
-            3
-          </span>
-        </button>
       </div>
 
       {/* Right side - Admin profile */}
@@ -123,24 +101,6 @@ const AdminTopbar = () => {
               </p>
             </div>
             
-            <DropdownMenuItem asChild>
-              <Link 
-                to="/profile" 
-                className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer"
-              >
-                <User className="w-4 h-4" />
-                Admin Profile
-              </Link>
-            </DropdownMenuItem>
-            
-            <DropdownMenuItem asChild>
-              <Link to="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
-                <Settings className="w-4 h-4" />
-                Admin Settings
-              </Link>
-            </DropdownMenuItem>
-            
-            <DropdownMenuSeparator className="bg-zinc-700" />
             
             <DropdownMenuItem asChild>
               <Link 

@@ -102,38 +102,6 @@ const SearchPage = () => {
     { id: "playlist", label: "Playlists", icon: User }
   ];
 
-  const browseCategories = [
-    {
-      id: "pop",
-      title: "Pop",
-      color: "bg-gradient-to-br from-pink-500 to-purple-600"
-    },
-    {
-      id: "hip-hop",
-      title: "Hip Hop",
-      color: "bg-gradient-to-br from-orange-500 to-red-600"
-    },
-    {
-      id: "rock",
-      title: "Rock",
-      color: "bg-gradient-to-br from-gray-600 to-gray-800"
-    },
-    {
-      id: "electronic",
-      title: "Electronic",
-      color: "bg-gradient-to-br from-blue-500 to-cyan-600"
-    },
-    {
-      id: "jazz",
-      title: "Jazz",
-      color: "bg-gradient-to-br from-yellow-500 to-orange-600"
-    },
-    {
-      id: "classical",
-      title: "Classical",
-      color: "bg-gradient-to-br from-green-500 to-teal-600"
-    }
-  ];
 
   return (
     <main className="flex-1 bg-zinc-900 text-white">
@@ -215,15 +183,22 @@ const SearchPage = () => {
                     <div className="mb-8">
                       <h3 className="text-xl font-semibold text-white mb-4">Artists</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {searchResults.artists.map(artist => (
-                          <div key={artist._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
-                            <div className="w-full aspect-square bg-zinc-700 rounded-md mb-4 flex items-center justify-center">
-                              <Mic className="h-12 w-12 text-zinc-400" />
+                        {searchResults.artists.map(artist => {
+                          const img = artist?.latestSong?.imageUrl;
+                          return (
+                            <div key={artist._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
+                              <div className="w-full aspect-square rounded-md mb-4 overflow-hidden bg-zinc-700 flex items-center justify-center">
+                                {img ? (
+                                  <img src={img} alt={artist._id} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Mic className="h-12 w-12 text-zinc-400" />
+                                )}
+                              </div>
+                              <h4 className="font-semibold text-white truncate">{artist._id}</h4>
+                              <p className="text-sm text-zinc-400">{artist.songCount} songs</p>
                             </div>
-                            <h4 className="font-semibold text-white truncate">{artist._id}</h4>
-                            <p className="text-sm text-zinc-400">{artist.songCount} songs</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -233,16 +208,23 @@ const SearchPage = () => {
                     <div className="mb-8">
                       <h3 className="text-xl font-semibold text-white mb-4">Albums</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {searchResults.albums.map(album => (
-                          <div key={album._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
-                            <div className="w-full aspect-square bg-zinc-700 rounded-md mb-4 flex items-center justify-center">
-                              <Radio className="h-12 w-12 text-zinc-400" />
+                        {searchResults.albums.map(album => {
+                          const img = album?.latestSong?.imageUrl;
+                          return (
+                            <div key={album._id} className="bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300">
+                              <div className="w-full aspect-square rounded-md mb-4 overflow-hidden bg-zinc-700 flex items-center justify-center">
+                                {img ? (
+                                  <img src={img} alt={album._id} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Radio className="h-12 w-12 text-zinc-400" />
+                                )}
+                              </div>
+                              <h4 className="font-semibold text-white truncate">{album._id}</h4>
+                              <p className="text-sm text-zinc-400">{album.artist}</p>
+                              <p className="text-sm text-zinc-400">{album.songCount} songs</p>
                             </div>
-                            <h4 className="font-semibold text-white truncate">{album._id}</h4>
-                            <p className="text-sm text-zinc-400">{album.artist}</p>
-                            <p className="text-sm text-zinc-400">{album.songCount} songs</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -262,20 +244,6 @@ const SearchPage = () => {
             </>
           ) : (
             <>
-              {/* Browse All */}
-              <div className="mb-8">
-                <h2 className="text-xl font-bold text-white mb-4">Browse All</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {browseCategories.map((category) => (
-                    <div
-                      key={category.id}
-                      className={`${category.color} aspect-square rounded-lg p-4 flex items-end cursor-pointer hover:scale-105 transition-transform duration-200`}
-                    >
-                      <h3 className="text-white font-bold text-lg">{category.title}</h3>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Recently Searched */}
               {recentSearches.length > 0 && (

@@ -28,6 +28,7 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import apiService from '@/services/api';
 
 const Settings = () => {
   const { user } = useCustomAuth();
@@ -44,14 +45,16 @@ const Settings = () => {
   
   // Form data
   const [formData, setFormData] = useState({
-    firstName: userProfile?.firstName || user?.firstName || '',
-    lastName: userProfile?.lastName || user?.lastName || '',
-    email: userProfile?.email || user?.email || '',
+    firstName: '',
+    lastName: '',
+    email: '',
     phone: '',
     bio: '',
     location: '',
     website: '',
     dateOfBirth: '',
+    gender: 'prefer-not-to-say',
+    country: '',
     // Preferences
     theme: 'dark',
     language: 'en',
@@ -66,9 +69,77 @@ const Settings = () => {
     }
   });
 
-  // Update form data when user profile loads
+  // Additional state for loading and errors
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [originalData, setOriginalData] = useState<any>(null);
+
+  // Fetch complete user profile data
+  const fetchUserProfile = async () => {
+    setIsLoadingProfile(true);
+    setProfileError(null);
+    
+    try {
+      const response = await apiService.getProfile();
+      if (response.success && response.data.user) {
+        const userData = response.data.user;
+        
+        // Format date for input field
+        const formatDateForInput = (dateString: string | Date | null) => {
+          if (!dateString) return '';
+          const date = new Date(dateString);
+          return date.toISOString().split('T')[0];
+        };
+
+        const profileData = {
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          bio: userData.bio || '',
+          location: userData.location || userData.country || '',
+          website: userData.website || '',
+          dateOfBirth: formatDateForInput(userData.dateOfBirth),
+          gender: userData.gender || 'prefer-not-to-say',
+          country: userData.country || '',
+          theme: userData.preferences?.theme || 'dark',
+          language: userData.preferences?.language || 'en',
+          notifications: {
+            email: userData.preferences?.notifications?.email ?? true,
+            push: userData.preferences?.notifications?.push ?? true,
+            marketing: userData.preferences?.notifications?.marketing ?? false
+          },
+          privacy: {
+            profileVisibility: userData.preferences?.privacy?.profileVisibility || 'public',
+            showRecentActivity: userData.preferences?.privacy?.showRecentActivity ?? true
+          }
+        };
+
+        setFormData(profileData);
+        setOriginalData(profileData);
+        
+        // Update profile image if available
+        if (userData.picture) {
+          setProfileImage(userData.picture);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      setProfileError(error.message || 'Failed to load profile data');
+      toast.error('Failed to load profile data');
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // Fetch profile data on component mount
   useEffect(() => {
-    if (userProfile) {
+    fetchUserProfile();
+  }, []);
+
+  // Update form data when userProfile changes (fallback)
+  useEffect(() => {
+    if (userProfile && !originalData) {
       setFormData(prev => ({
         ...prev,
         firstName: userProfile.firstName || '',
@@ -76,7 +147,7 @@ const Settings = () => {
         email: userProfile.email || '',
       }));
     }
-  }, [userProfile]);
+  }, [userProfile, originalData]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -118,21 +189,69 @@ const Settings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Here you would make actual API calls to update user data
-      // await updateUserProfile(formData);
-      // await updateUserPreferences(formData.preferences);
+      // Prepare profile data for API
+      const profileData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        dateOfBirth: formData.dateOfBirth || null,
+        gender: formData.gender,
+        country: formData.country,
+        phone: formData.phone && formData.phone.trim() !== '' ? formData.phone : null,
+        bio: formData.bio || null,
+        website: formData.website && formData.website.trim() !== '' ? formData.website : null,
+        location: formData.location || null,
+      };
+
+      // Prepare preferences data for API
+      const preferencesData = {
+        theme: formData.theme,
+        language: formData.language,
+        notifications: formData.notifications,
+        privacy: formData.privacy
+      };
+
+      // Update profile
+      const profileResponse = await apiService.updateProfile(profileData);
+      if (!profileResponse.success) {
+        throw new Error(profileResponse.message || 'Failed to update profile');
+      }
+
+      // Update preferences
+      const preferencesResponse = await apiService.updatePreferences(preferencesData);
+      if (!preferencesResponse.success) {
+        throw new Error(preferencesResponse.message || 'Failed to update preferences');
+      }
+
+      // Update original data to reflect saved state
+      setOriginalData({ ...formData });
       
       toast.success('Settings saved successfully!');
       setIsEditing(false);
-      refetch(); // Refresh user profile data
-    } catch (error) {
-      toast.error('Failed to save settings. Please try again.');
+      
+      // Refresh user profile data
+      await fetchUserProfile();
+      refetch();
+      
+    } catch (error: any) {
+      console.error('Save error:', error);
+      toast.error(error.message || 'Failed to save settings. Please try again.');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Check if form has changes
+  const hasChanges = () => {
+    if (!originalData) return false;
+    return JSON.stringify(formData) !== JSON.stringify(originalData);
+  };
+
+  // Handle cancel - reset form to original data
+  const handleCancel = () => {
+    if (originalData) {
+      setFormData(originalData);
+    }
+    setIsEditing(false);
   };
 
   const tabs = [
@@ -143,7 +262,7 @@ const Settings = () => {
     { id: 'appearance', label: 'Appearance', icon: Palette }
   ];
 
-  if (isLoading) {
+  if (isLoading || isLoadingProfile) {
     return (
       <main className='rounded-md overflow-hidden h-full bg-gradient-to-b from-zinc-800 to-zinc-900'>
         <AudixTopbar />
@@ -151,6 +270,27 @@ const Settings = () => {
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-white">Loading settings...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <main className='rounded-md overflow-hidden h-full bg-gradient-to-b from-zinc-800 to-zinc-900'>
+        <AudixTopbar />
+        <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+          <div className="text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Error Loading Settings</h2>
+            <p className="text-zinc-400 mb-4">{profileError}</p>
+            <button
+              onClick={fetchUserProfile}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </main>
@@ -178,7 +318,7 @@ const Settings = () => {
               {isEditing && (
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setIsEditing(false)}
+                    onClick={handleCancel}
                     className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
                   >
                     <X className="w-4 h-4" />
@@ -186,7 +326,7 @@ const Settings = () => {
                   </button>
                   <button
                     onClick={handleSave}
-                    disabled={isSaving}
+                    disabled={isSaving || !hasChanges()}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 disabled:opacity-50"
                   >
                     {isSaving ? (
@@ -394,6 +534,29 @@ const Settings = () => {
                         ) : (
                           <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
                             {formData.dateOfBirth || 'Not provided'}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                          Gender
+                        </label>
+                        {isEditing ? (
+                          <select
+                            value={formData.gender}
+                            onChange={(e) => handleInputChange('gender', e.target.value)}
+                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          >
+                            <option value="prefer-not-to-say">Prefer not to say</option>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                          </select>
+                        ) : (
+                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                            {formData.gender === 'prefer-not-to-say' ? 'Prefer not to say' : 
+                             formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1)}
                           </div>
                         )}
                       </div>

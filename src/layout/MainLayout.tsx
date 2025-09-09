@@ -4,9 +4,11 @@ import LeftSidebar from "./components/LeftSidebar";
 import FriendsActivity from "./components/FriendsActivity";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { useEffect, useState } from "react";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 
 const MainLayout = () => {
 	const [isMobile, setIsMobile] = useState(false);
+	const { currentSong } = useAudioPlayer();
 
 	useEffect(() => {
 		const checkMobile = () => {
@@ -20,7 +22,7 @@ const MainLayout = () => {
 
 	return (
 		<div className='h-screen bg-black text-white flex flex-col'>
-			<ResizablePanelGroup direction='horizontal' className='flex-1 flex h-full overflow-hidden p-2'>
+			<ResizablePanelGroup direction='horizontal' className={`flex-1 flex h-full overflow-hidden p-2 ${currentSong ? 'pb-0' : ''}`}>
 				{/* left sidebar */}
 				<ResizablePanel defaultSize={20} minSize={isMobile ? 0 : 10} maxSize={30}>
 					<LeftSidebar />
@@ -45,7 +47,12 @@ const MainLayout = () => {
 				)}
 			</ResizablePanelGroup>
 
-			<PlaybackControls />
+			{/* Only show playback controls when a song is playing */}
+			{currentSong && (
+				<div className="animate-in slide-in-from-bottom-2 duration-300">
+					<PlaybackControls />
+				</div>
+			)}
 		</div>
 	);
 };

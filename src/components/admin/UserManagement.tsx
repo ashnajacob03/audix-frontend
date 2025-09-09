@@ -12,7 +12,13 @@ import {
   Calendar,
   Globe,
   Activity,
-  Shield
+  Shield,
+  Plus,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Loader2
 } from 'lucide-react';
 
 interface User {
@@ -37,7 +43,14 @@ const UserManagement = () => {
   const [totalUsersCount, setTotalUsersCount] = useState(0);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<'delete' | 'update' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -63,7 +76,95 @@ const UserManagement = () => {
     }
   };
 
-  // Update handler can be wired to the modal when enabling edits
+
+  const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      console.log('Updating user:', userId, updates);
+      const result = await adminApi.updateUser(userId, updates);
+      console.log('Update result:', result);
+      setSuccess('User updated successfully');
+      await fetchUsers();
+      setShowUserModal(false);
+    } catch (error: any) {
+      console.error('Update error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update user';
+      setError(errorMessage);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      setDeleting(true);
+      setError(null);
+      console.log('Deleting user:', userId);
+      const result = await adminApi.deleteUser(userId);
+      console.log('Delete result:', result);
+      setSuccess('User deleted successfully');
+      await fetchUsers();
+      setShowDeleteModal(false);
+      setSelectedUser(null);
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete user';
+      setError(errorMessage);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setDeleting(true);
+      setError(null);
+      await adminApi.bulkDeleteUsers(selectedUsers);
+      setSuccess(`${selectedUsers.length} users deleted successfully`);
+      await fetchUsers();
+      setSelectedUsers([]);
+      setShowBulkModal(false);
+      setBulkAction(null);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to delete users');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBulkUpdate = async (updates: any) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      await adminApi.bulkUpdateUsers(selectedUsers, updates);
+      setSuccess(`${selectedUsers.length} users updated successfully`);
+      await fetchUsers();
+      setSelectedUsers([]);
+      setShowBulkModal(false);
+      setBulkAction(null);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to update users');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const selectAllUsers = () => {
+    setSelectedUsers(users.map(user => user.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedUsers([]);
+  };
 
   const getAccountTypeColor = (type: string) => {
     switch (type) {
@@ -110,8 +211,34 @@ const UserManagement = () => {
     return formatDate(dateString);
   };
 
+  // Clear messages after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError(null);
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, success]);
+
   return (
     <div className="space-y-6">
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3">
+          <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <p className="text-red-400">{error}</p>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
+          <p className="text-green-400">{success}</p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -121,6 +248,11 @@ const UserManagement = () => {
             <span className="ml-2 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
               Total: {totalUsersCount.toLocaleString()}
             </span>
+            {selectedUsers.length > 0 && (
+              <span className="ml-2 px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                Selected: {selectedUsers.length}
+              </span>
+            )}
           </h2>
           <p className="text-zinc-400 mt-1">Manage user accounts and permissions</p>
         </div>
@@ -138,6 +270,40 @@ const UserManagement = () => {
           <button className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors">
             <Filter className="w-4 h-4 text-zinc-400" />
           </button>
+          
+          {/* Bulk Actions */}
+          {selectedUsers.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setBulkAction('update');
+                  setShowBulkModal(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+                Bulk Update
+              </button>
+              <button
+                onClick={() => {
+                  setBulkAction('delete');
+                  setShowBulkModal(true);
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 rounded-lg text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Bulk Delete
+              </button>
+              <button
+                onClick={clearSelection}
+                className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors"
+                title="Clear selection"
+              >
+                <XCircle className="w-4 h-4 text-zinc-400" />
+              </button>
+            </div>
+          )}
+          
         </div>
       </div>
 
@@ -154,6 +320,15 @@ const UserManagement = () => {
               <table className="w-full">
                 <thead className="bg-zinc-700/30">
                   <tr>
+                    <th className="px-6 py-4 text-left text-zinc-300 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.length === users.length && users.length > 0}
+                        onChange={selectedUsers.length === users.length ? clearSelection : selectAllUsers}
+                        className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
+                      />
+                    </th>
+                    <th className="px-6 py-4 text-left text-zinc-300 font-medium">#</th>
                     <th className="px-6 py-4 text-left text-zinc-300 font-medium">User</th>
                     <th className="px-6 py-4 text-left text-zinc-300 font-medium">Account Type</th>
                     <th className="px-6 py-4 text-left text-zinc-300 font-medium">Status</th>
@@ -163,8 +338,25 @@ const UserManagement = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-700/30">
-                  {users.map((user) => (
+                  {users.map((user, index) => {
+                    // Calculate serial number based on current page and user index
+                    const serialNumber = (currentPage - 1) * 20 + index + 1;
+                    
+                    return (
                     <tr key={user.id} className="hover:bg-zinc-700/20 transition-colors">
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={() => toggleUserSelection(user.id)}
+                          className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-zinc-400 font-mono text-sm">
+                          {serialNumber}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -235,13 +427,21 @@ const UserManagement = () => {
                           >
                             <Edit className="w-4 h-4 text-blue-400" />
                           </button>
-                          <button className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors">
-                            <MoreVertical className="w-4 h-4 text-zinc-400" />
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-400" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -276,19 +476,126 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* User Edit Modal */}
+
+      {/* Edit User Modal */}
       {showUserModal && selectedUser && (
+        <EditUserModal
+          user={selectedUser}
+          onClose={() => {
+            setShowUserModal(false);
+            setSelectedUser(null);
+          }}
+          onSubmit={(updates) => handleUpdateUser(selectedUser.id, updates)}
+          loading={updating}
+        />
+      )}
+
+      {/* Delete User Modal */}
+      {showDeleteModal && selectedUser && (
+        <DeleteUserModal
+          user={selectedUser}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedUser(null);
+          }}
+          onConfirm={() => handleDeleteUser(selectedUser.id)}
+          loading={deleting}
+        />
+      )}
+
+      {/* Bulk Actions Modal */}
+      {showBulkModal && (
+        <BulkActionsModal
+          action={bulkAction}
+          selectedCount={selectedUsers.length}
+          onClose={() => {
+            setShowBulkModal(false);
+            setBulkAction(null);
+          }}
+          onConfirm={bulkAction === 'delete' ? handleBulkDelete : handleBulkUpdate}
+          loading={deleting || updating}
+        />
+      )}
+    </div>
+  );
+};
+
+
+// Edit User Modal Component
+const EditUserModal = ({ user, onClose, onSubmit, loading }: {
+  user: User;
+  onClose: () => void;
+  onSubmit: (updates: any) => void;
+  loading: boolean;
+}) => {
+  const [formData, setFormData] = useState({
+    firstName: user.name.split(' ')[0] || '',
+    lastName: user.name.split(' ').slice(1).join(' ') || '',
+    email: user.email,
+    accountType: user.accountType,
+    isAdmin: user.isAdmin,
+    isEmailVerified: user.isEmailVerified,
+    isActive: user.isActive
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold text-white mb-4">Edit User</h3>
-            
-            <div className="space-y-4">
+        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Edit className="w-5 h-5 text-blue-400" />
+          Edit User
+        </h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-zinc-300 text-sm font-medium mb-2">
+                First Name
+              </label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                className="w-full bg-zinc-700/50 border border-zinc-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-zinc-300 text-sm font-medium mb-2">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                className="w-full bg-zinc-700/50 border border-zinc-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-zinc-300 text-sm font-medium mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full bg-zinc-700/50 border border-zinc-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
               <div>
                 <label className="block text-zinc-300 text-sm font-medium mb-2">
                   Account Type
                 </label>
                 <select
-                  defaultValue={selectedUser.accountType}
+              value={formData.accountType}
+              onChange={(e) => setFormData(prev => ({ ...prev, accountType: e.target.value as any }))}
                   className="w-full bg-zinc-700/50 border border-zinc-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
                 >
                   <option value="free">Free</option>
@@ -298,54 +605,239 @@ const UserManagement = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-3">
+          <div className="space-y-3">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    defaultChecked={selectedUser.isAdmin}
+                checked={formData.isAdmin}
+                onChange={(e) => setFormData(prev => ({ ...prev, isAdmin: e.target.checked }))}
                     className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
                   />
                   <span className="text-zinc-300 text-sm">Admin Access</span>
                 </label>
-              </div>
-
-              <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={formData.isEmailVerified}
+                onChange={(e) => setFormData(prev => ({ ...prev, isEmailVerified: e.target.checked }))}
+                className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
+              />
+              <span className="text-zinc-300 text-sm">Email Verified</span>
+            </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    defaultChecked={selectedUser.isActive}
+                checked={formData.isActive}
+                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
                     className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
                   />
                   <span className="text-zinc-300 text-sm">Active Account</span>
                 </label>
-              </div>
             </div>
 
             <div className="flex items-center gap-3 mt-6">
               <button
-                onClick={() => {
-                  setShowUserModal(false);
-                  setSelectedUser(null);
-                }}
+              type="button"
+              onClick={onClose}
                 className="flex-1 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  // Handle save logic here
-                  setShowUserModal(false);
-                  setSelectedUser(null);
-                }}
-                disabled={updating}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {updating ? 'Saving...' : 'Save Changes'}
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Delete User Modal Component
+const DeleteUserModal = ({ user, onClose, onConfirm, loading }: {
+  user: User;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 w-full max-w-md">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-red-500/20 rounded-xl flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">Delete User</h3>
+            <p className="text-zinc-400 text-sm">This action cannot be undone</p>
+          </div>
+        </div>
+        
+        <div className="bg-zinc-700/30 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              {user.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={user.name}
+                  className="w-10 h-10 rounded-xl object-cover"
+                />
+              ) : (
+                <span className="text-white font-bold text-sm">
+                  {user.name.split(' ').map(n => n[0]).join('')}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-white font-medium">{user.name}</p>
+              <p className="text-zinc-400 text-sm">{user.email}</p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-zinc-300 text-sm mb-6">
+          Are you sure you want to delete this user? All their data, playlists, and activity will be permanently removed.
+        </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? 'Deleting...' : 'Delete User'}
               </button>
             </div>
           </div>
         </div>
-      )}
+  );
+};
+
+// Bulk Actions Modal Component
+const BulkActionsModal = ({ action, selectedCount, onClose, onConfirm, loading }: {
+  action: 'delete' | 'update' | null;
+  selectedCount: number;
+  onClose: () => void;
+  onConfirm: (data?: any) => void;
+  loading: boolean;
+}) => {
+  const [updateData, setUpdateData] = useState({
+    accountType: 'free' as 'free' | 'premium' | 'family' | 'student',
+    isActive: true
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (action === 'update') {
+      onConfirm(updateData);
+    } else {
+      onConfirm();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-6 w-full max-w-md">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            action === 'delete' ? 'bg-red-500/20' : 'bg-blue-500/20'
+          }`}>
+            {action === 'delete' ? (
+              <Trash2 className="w-6 h-6 text-red-400" />
+            ) : (
+              <Edit className="w-6 h-6 text-blue-400" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">
+              {action === 'delete' ? 'Bulk Delete Users' : 'Bulk Update Users'}
+            </h3>
+            <p className="text-zinc-400 text-sm">
+              {selectedCount} user{selectedCount !== 1 ? 's' : ''} selected
+            </p>
+          </div>
+        </div>
+        
+        {action === 'delete' ? (
+          <>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                <span className="text-red-400 font-medium">Warning</span>
+              </div>
+              <p className="text-red-300 text-sm">
+                This will permanently delete {selectedCount} user{selectedCount !== 1 ? 's' : ''} and all their data. This action cannot be undone.
+              </p>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-zinc-300 text-sm font-medium mb-2">
+                Account Type
+              </label>
+              <select
+                value={updateData.accountType}
+                onChange={(e) => setUpdateData(prev => ({ ...prev, accountType: e.target.value as any }))}
+                className="w-full bg-zinc-700/50 border border-zinc-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="free">Free</option>
+                <option value="premium">Premium</option>
+                <option value="family">Family</option>
+                <option value="student">Student</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={updateData.isActive}
+                  onChange={(e) => setUpdateData(prev => ({ ...prev, isActive: e.target.checked }))}
+                  className="rounded border-zinc-600 bg-zinc-700 text-blue-500 focus:ring-blue-500"
+                />
+                <span className="text-zinc-300 text-sm">Active Account</span>
+              </label>
+            </div>
+          </form>
+        )}
+
+        <div className="flex items-center gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={action === 'update' ? handleSubmit : onConfirm}
+            disabled={loading}
+            className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${
+              action === 'delete' 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading 
+              ? (action === 'delete' ? 'Deleting...' : 'Updating...')
+              : (action === 'delete' ? 'Delete Users' : 'Update Users')
+            }
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

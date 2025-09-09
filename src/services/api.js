@@ -30,8 +30,8 @@ class ApiService {
   }
 
   async delete(endpoint, options = {}) {
-    const { headers } = options || {};
-    return this.request(endpoint, { method: 'DELETE', headers });
+    const { headers, body } = options || {};
+    return this.request(endpoint, { method: 'DELETE', headers, body });
   }
 
   async request(endpoint, options = {}) {
@@ -68,7 +68,7 @@ class ApiService {
 
         if (!response.ok) {
           // Handle token expiration
-          if (response.status === 401 && data && data.code === 'TOKEN_EXPIRED') {
+          if (response.status === 401) {
             const refreshToken = localStorage.getItem('refreshToken');
             if (refreshToken) {
               try {
@@ -96,9 +96,17 @@ class ApiService {
                 // Refresh failed, redirect to login
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
                 window.dispatchEvent(new CustomEvent('authTokenExpired'));
                 throw new Error('Session expired. Please log in again.');
               }
+            } else {
+              // No refresh token, redirect to login
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              window.dispatchEvent(new CustomEvent('authTokenExpired'));
+              throw new Error('Session expired. Please log in again.');
             }
           }
 

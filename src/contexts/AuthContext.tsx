@@ -61,7 +61,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
+    // Listen for token expiration events
+    const handleTokenExpired = () => {
+      console.log('Token expired, logging out user');
+      // Clear local storage and redirect
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('mongoUser');
+      window.location.href = '/login';
+    };
+
     checkAuthStatus();
+    
+    // Add event listener for token expiration
+    window.addEventListener('authTokenExpired', handleTokenExpired);
+    
+    // Cleanup event listener
+    return () => {
+      window.removeEventListener('authTokenExpired', handleTokenExpired);
+    };
   }, []);
 
   const login = (userData: User, tokens: { accessToken: string; refreshToken: string }) => {

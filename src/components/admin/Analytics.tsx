@@ -188,9 +188,17 @@ const Analytics = () => {
               <p className="text-zinc-400 text-sm font-medium">New Users</p>
               <p className="text-3xl font-bold text-white">{formatNumber(analytics?.users.new || 0)}</p>
               <div className="flex items-center gap-2 mt-2">
-                {getGrowthIcon(12.4)}
-                <span className={`text-sm font-medium ${getGrowthColor(12.4)}`}>+12.4%</span>
-                <span className="text-zinc-500 text-sm">vs last period</span>
+                {analytics?.users.newGrowthRate ? (
+                  <>
+                    {getGrowthIcon(analytics.users.newGrowthRate)}
+                    <span className={`text-sm font-medium ${getGrowthColor(analytics.users.newGrowthRate)}`}>
+                      {analytics.users.newGrowthRate > 0 ? '+' : ''}{analytics.users.newGrowthRate.toFixed(1)}%
+                    </span>
+                    <span className="text-zinc-500 text-sm">vs last period</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500 text-sm">No data available</span>
+                )}
               </div>
             </div>
             <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
@@ -205,9 +213,17 @@ const Analytics = () => {
               <p className="text-zinc-400 text-sm font-medium">Active Users</p>
               <p className="text-3xl font-bold text-white">{formatNumber(analytics?.users.active || 0)}</p>
               <div className="flex items-center gap-2 mt-2">
-                {getGrowthIcon(8.7)}
-                <span className={`text-sm font-medium ${getGrowthColor(8.7)}`}>+8.7%</span>
-                <span className="text-zinc-500 text-sm">vs last period</span>
+                {analytics?.users.activeGrowthRate ? (
+                  <>
+                    {getGrowthIcon(analytics.users.activeGrowthRate)}
+                    <span className={`text-sm font-medium ${getGrowthColor(analytics.users.activeGrowthRate)}`}>
+                      {analytics.users.activeGrowthRate > 0 ? '+' : ''}{analytics.users.activeGrowthRate.toFixed(1)}%
+                    </span>
+                    <span className="text-zinc-500 text-sm">vs last period</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500 text-sm">No data available</span>
+                )}
               </div>
             </div>
             <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center border border-green-500/30">
@@ -222,9 +238,17 @@ const Analytics = () => {
               <p className="text-zinc-400 text-sm font-medium">Premium Users</p>
               <p className="text-3xl font-bold text-white">{formatNumber(analytics?.users.premium || 0)}</p>
               <div className="flex items-center gap-2 mt-2">
-                {getGrowthIcon(23.1)}
-                <span className={`text-sm font-medium ${getGrowthColor(23.1)}`}>+23.1%</span>
-                <span className="text-zinc-500 text-sm">vs last period</span>
+                {analytics?.users.premiumGrowthRate ? (
+                  <>
+                    {getGrowthIcon(analytics.users.premiumGrowthRate)}
+                    <span className={`text-sm font-medium ${getGrowthColor(analytics.users.premiumGrowthRate)}`}>
+                      {analytics.users.premiumGrowthRate > 0 ? '+' : ''}{analytics.users.premiumGrowthRate.toFixed(1)}%
+                    </span>
+                    <span className="text-zinc-500 text-sm">vs last period</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500 text-sm">No data available</span>
+                )}
               </div>
             </div>
             <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center border border-yellow-500/30">
@@ -239,9 +263,17 @@ const Analytics = () => {
               <p className="text-zinc-400 text-sm font-medium">Messages</p>
               <p className="text-3xl font-bold text-white">{formatNumber(analytics?.content.messages || 0)}</p>
               <div className="flex items-center gap-2 mt-2">
-                {getGrowthIcon(15.8)}
-                <span className={`text-sm font-medium ${getGrowthColor(15.8)}`}>+15.8%</span>
-                <span className="text-zinc-500 text-sm">vs last period</span>
+                {analytics?.content.messagesGrowthRate ? (
+                  <>
+                    {getGrowthIcon(analytics.content.messagesGrowthRate)}
+                    <span className={`text-sm font-medium ${getGrowthColor(analytics.content.messagesGrowthRate)}`}>
+                      {analytics.content.messagesGrowthRate > 0 ? '+' : ''}{analytics.content.messagesGrowthRate.toFixed(1)}%
+                    </span>
+                    <span className="text-zinc-500 text-sm">vs last period</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500 text-sm">No data available</span>
+                )}
               </div>
             </div>
             <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center border border-purple-500/30">
@@ -311,8 +343,10 @@ const Analytics = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-white font-bold text-lg">{formatNumber(45672)}</p>
-                <p className="text-green-400 text-sm">+12.4%</p>
+                <p className="text-white font-bold text-lg">{formatNumber(analytics?.users.total || 0)}</p>
+                <p className="text-green-400 text-sm">
+                  {analytics?.users.totalGrowthRate ? `+${analytics.users.totalGrowthRate.toFixed(1)}%` : "—"}
+                </p>
               </div>
             </div>
 
@@ -325,8 +359,10 @@ const Analytics = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-white font-bold text-lg">{formatNumber(5621)}</p>
-                <p className="text-green-400 text-sm">+23.1%</p>
+                <p className="text-white font-bold text-lg">{formatNumber(analytics?.users.premium || 0)}</p>
+                <p className="text-green-400 text-sm">
+                  {analytics?.users.premiumGrowthRate ? `+${analytics.users.premiumGrowthRate.toFixed(1)}%` : "—"}
+                </p>
               </div>
             </div>
 
@@ -339,8 +375,10 @@ const Analytics = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-white font-bold text-lg">{formatNumber(8934)}</p>
-                <p className="text-green-400 text-sm">+5.2%</p>
+                <p className="text-white font-bold text-lg">{formatNumber(analytics?.users.active || 0)}</p>
+                <p className="text-green-400 text-sm">
+                  {analytics?.users.activeGrowthRate ? `+${analytics.users.activeGrowthRate.toFixed(1)}%` : "—"}
+                </p>
               </div>
             </div>
           </div>
@@ -354,8 +392,12 @@ const Analytics = () => {
             <DollarSign className="w-6 h-6 text-emerald-400" />
             <h3 className="text-lg font-bold text-white">Revenue</h3>
           </div>
-          <p className="text-3xl font-bold text-white">$127,450</p>
-          <p className="text-emerald-400 text-sm font-medium">+15.8% this month</p>
+          <p className="text-3xl font-bold text-white">
+            {analytics?.revenue?.monthly ? `$${formatNumber(analytics.revenue.monthly)}` : "—"}
+          </p>
+          <p className="text-emerald-400 text-sm font-medium">
+            {analytics?.revenue?.growthRate ? `+${analytics.revenue.growthRate.toFixed(1)}% this month` : "No data available"}
+          </p>
           <div className="mt-4 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
             <p className="text-emerald-400 text-sm">Monthly recurring revenue</p>
           </div>
@@ -366,8 +408,12 @@ const Analytics = () => {
             <Play className="w-6 h-6 text-pink-400" />
             <h3 className="text-lg font-bold text-white">Total Streams</h3>
           </div>
-          <p className="text-3xl font-bold text-white">1.2M</p>
-          <p className="text-pink-400 text-sm font-medium">+18.3% this month</p>
+          <p className="text-3xl font-bold text-white">
+            {analytics?.streams?.total ? formatNumber(analytics.streams.total) : "—"}
+          </p>
+          <p className="text-pink-400 text-sm font-medium">
+            {analytics?.streams?.growthRate ? `+${analytics.streams.growthRate.toFixed(1)}% this month` : "No data available"}
+          </p>
           <div className="mt-4 p-3 bg-pink-500/10 rounded-lg border border-pink-500/20">
             <p className="text-pink-400 text-sm">Music streaming activity</p>
           </div>
@@ -378,8 +424,12 @@ const Analytics = () => {
             <Clock className="w-6 h-6 text-purple-400" />
             <h3 className="text-lg font-bold text-white">Avg Session</h3>
           </div>
-          <p className="text-3xl font-bold text-white">24m 32s</p>
-          <p className="text-purple-400 text-sm font-medium">+2.1% this month</p>
+          <p className="text-3xl font-bold text-white">
+            {analytics?.engagement?.avgSessionTime || "—"}
+          </p>
+          <p className="text-purple-400 text-sm font-medium">
+            {analytics?.engagement?.sessionGrowthRate ? `+${analytics.engagement.sessionGrowthRate.toFixed(1)}% this month` : "No data available"}
+          </p>
           <div className="mt-4 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
             <p className="text-purple-400 text-sm">Average session duration</p>
           </div>

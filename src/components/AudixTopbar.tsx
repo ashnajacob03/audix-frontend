@@ -124,12 +124,6 @@ const AudixTopbar = () => {
                 </Link>
               </DropdownMenuItem>
               
-              <DropdownMenuItem asChild>
-                <Link to="/stats" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
-                  <BarChart3 className="w-4 h-4" />
-                  My Stats
-                </Link>
-              </DropdownMenuItem>
               
               <DropdownMenuItem asChild>
                 <Link to="/liked" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">

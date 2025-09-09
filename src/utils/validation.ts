@@ -49,9 +49,27 @@ export const validateEmail = async (email: string, config = validationConfig.ema
   if (!trimmedEmail) {
     return { isValid: false, message: 'Email is required', field: 'email' };
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Strict email validation regex
+  const emailRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(trimmedEmail)) {
     return { isValid: false, message: 'Invalid email address', field: 'email' };
+  }
+  
+  // Additional strict validation rules
+  const [localPart] = trimmedEmail.split('@');
+  
+  // Local part (before @) validation
+  if (localPart.length < 2) {
+    return { isValid: false, message: 'Email username must be at least 2 characters long', field: 'email' };
+  }
+  if (localPart.length > 64) {
+    return { isValid: false, message: 'Email username cannot exceed 64 characters', field: 'email' };
+  }
+  if (localPart.startsWith('.') || localPart.endsWith('.')) {
+    return { isValid: false, message: 'Email username cannot start or end with a dot', field: 'email' };
+  }
+  if (localPart.includes('..')) {
+    return { isValid: false, message: 'Email username cannot contain consecutive dots', field: 'email' };
   }
   // Block disposable domains
   if (config.blockDisposable) {
@@ -71,6 +89,21 @@ export const validateEmail = async (email: string, config = validationConfig.ema
   if (!domainPart) {
     return { isValid: false, message: 'Invalid email address', field: 'email' };
   }
+  
+  // Domain part validation
+  if (domainPart.length < 4) {
+    return { isValid: false, message: 'Email domain must be at least 4 characters long', field: 'email' };
+  }
+  if (domainPart.length > 253) {
+    return { isValid: false, message: 'Email domain cannot exceed 253 characters', field: 'email' };
+  }
+  if (domainPart.startsWith('.') || domainPart.endsWith('.')) {
+    return { isValid: false, message: 'Email domain cannot start or end with a dot', field: 'email' };
+  }
+  if (domainPart.includes('..')) {
+    return { isValid: false, message: 'Email domain cannot contain consecutive dots', field: 'email' };
+  }
+  
   const domainLower = domainPart.toLowerCase();
   if (knownTypos.includes(domainLower)) {
     return { isValid: false, message: 'Please enter a valid email address (possible typo in domain)', field: 'email' };

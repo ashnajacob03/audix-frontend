@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
@@ -13,58 +13,81 @@ const Profile = () => {
   const { userProfile, isLoading } = useUserProfile();
   const navigate = useNavigate();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [isActivityLoading, setIsActivityLoading] = useState<boolean>(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
-  // Mock data for user stats
-  const userStats = [
-    {
-      icon: Music,
-      label: "Songs Played",
-      value: "1,234",
-      change: "+12%"
-    },
-    {
-      icon: Heart,
-      label: "Liked Songs",
-      value: "89",
-      change: "+5%"
-    },
-    {
-      icon: Clock,
-      label: "Hours Listened",
-      value: "156",
-      change: "+23%"
-    },
-    {
-      icon: PlayCircle,
-      label: "Playlists",
-      value: "12",
-      change: "+2%"
-    }
-  ];
+  const API_BASE_URL = useMemo(() => ((import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api'), []);
 
-  const recentActivity = [
-    {
-      id: 1,
-      action: "Liked",
-      song: "Blinding Lights",
-      artist: "The Weeknd",
-      time: "2 hours ago"
-    },
-    {
-      id: 2,
-      action: "Added to playlist",
-      song: "Watermelon Sugar",
-      artist: "Harry Styles",
-      time: "5 hours ago"
-    },
-    {
-      id: 3,
-      action: "Played",
-      song: "Levitating",
-      artist: "Dua Lipa",
-      time: "1 day ago"
-    }
-  ];
+  type StatItem = { icon: any; label: string; value: string | number; change?: string | null };
+  const [userStats, setUserStats] = useState<StatItem[]>([
+    { icon: Music, label: 'Songs Played', value: '-' },
+    { icon: Heart, label: 'Liked Songs', value: '-' },
+    { icon: Clock, label: 'Hours Listened', value: '-' },
+    { icon: PlayCircle, label: 'Playlists', value: '-' },
+  ]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/user/stats`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) throw new Error('Failed to fetch user stats');
+        const data = await res.json();
+        const s = data?.data?.stats || {};
+
+        setUserStats([
+          { icon: Music, label: 'Songs Played', value: s.playCount ?? '-' },
+          { icon: Heart, label: 'Liked Songs', value: s.likedSongsCount ?? 0 },
+          { icon: Clock, label: 'Hours Listened', value: s.hoursListened ?? '-' },
+          { icon: PlayCircle, label: 'Playlists', value: s.playlistsCount ?? 0 },
+        ]);
+      } catch (e) {
+        // keep defaults on error
+      }
+    };
+    loadStats();
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    const fetchActivity = async () => {
+      try {
+        setIsActivityLoading(true);
+        setActivityError(null);
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          setIsActivityLoading(false);
+          return;
+        }
+        const res = await fetch(`${API_BASE_URL}/notifications`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        if (!res.ok) throw new Error('Failed to fetch activity');
+        const data = await res.json();
+        const notifications = (data?.data?.notifications || []) as any[];
+        const mapped = notifications.map((n: any) => ({
+          id: n._id,
+          action: n.title || n.type,
+          song: n.message,
+          artist: n?.sender ? `${n.sender.firstName || ''} ${n.sender.lastName || ''}`.trim() : 'System',
+          time: new Date(n.createdAt).toLocaleString(),
+        }));
+        setRecentActivity(mapped);
+      } catch (e: any) {
+        setActivityError(e?.message || 'Something went wrong');
+      } finally {
+        setIsActivityLoading(false);
+      }
+    };
+
+    fetchActivity();
+  }, [API_BASE_URL]);
 
   return (
     <main className='rounded-md overflow-hidden h-full bg-gradient-to-b from-zinc-800 to-zinc-900'>
@@ -146,14 +169,23 @@ const Profile = () => {
             <div className="bg-zinc-800/40 rounded-lg p-6">
               <h2 className="text-xl font-bold text-white mb-4">Recent Activity</h2>
               <div className="space-y-4">
-                {recentActivity.map((activity) => (
+                {isActivityLoading && (
+                  <div className="text-sm text-zinc-400">Loading activity...</div>
+                )}
+                {activityError && (
+                  <div className="text-sm text-red-400">{activityError}</div>
+                )}
+                {!isActivityLoading && !activityError && recentActivity.length === 0 && (
+                  <div className="text-sm text-zinc-400">No recent activity yet.</div>
+                )}
+                {!isActivityLoading && !activityError && recentActivity.map((activity) => (
                   <div key={activity.id} className="flex items-start gap-3 p-3 hover:bg-zinc-700/30 rounded-md transition-colors">
                     <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm">
                         <span className="text-green-500">{activity.action}</span> {activity.song}
                       </p>
-                      <p className="text-zinc-400 text-xs">by {activity.artist}</p>
+                      <p className="text-zinc-400 text-xs">{activity.artist}</p>
                       <p className="text-zinc-500 text-xs mt-1">{activity.time}</p>
                     </div>
                   </div>
@@ -162,31 +194,7 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="mt-8 bg-zinc-800/40 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <button 
-                onClick={() => setIsProfileModalOpen(true)}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Messages
-              </button>
-              <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
-                Create Playlist
-              </button>
-              <button className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
-                Browse Music
-              </button>
-              <button className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
-                View Liked Songs
-              </button>
-              <button className="bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
-                Settings
-              </button>
-            </div>
-          </div>
+          
         </div>
       </ScrollArea>
       
