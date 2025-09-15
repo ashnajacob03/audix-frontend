@@ -50,7 +50,15 @@ const LeftSidebar = () => {
 						imageUrl: s.imageUrl,
 					}));
 				});
-				if (isMounted) setRecentSongs(songs);
+				// Deduplicate by id or title-artist combo to avoid duplicate keys
+				const seen = new Set<string>();
+				const uniqueSongs = songs.filter((s) => {
+					const key = s._id || `${s.title}-${s.artist || ''}`;
+					if (seen.has(key)) return false;
+					seen.add(key);
+					return true;
+				});
+				if (isMounted) setRecentSongs(uniqueSongs);
 			} finally {
 				if (isMounted) setIsLoading(false);
 			}

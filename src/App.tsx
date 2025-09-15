@@ -9,6 +9,7 @@ import VerifyOTP from './pages/VerifyOTP';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Premium from './pages/Premium';
+import CancelPremium from './pages/CancelPremium';
 import Dashboard from './pages/Dashboard';
 import Home from './pages/Home';
 import SearchPage from './pages/SearchPage';
@@ -110,6 +111,11 @@ function App() {
           } />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/premium" element={<Premium />} />
+          <Route path="/cancel-premium" element={
+            <ProtectedRoute>
+              <CancelPremium />
+            </ProtectedRoute>
+          } />
           <Route
             path="/messages"
             element={

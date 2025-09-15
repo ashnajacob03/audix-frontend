@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCustomAuth } from '../contexts/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { testAuthFlow, testMusicAPIs } from '../utils/authTest';
 
 const Login = () => {
   const { login } = useCustomAuth();
@@ -48,6 +49,11 @@ const Login = () => {
           password,
         }),
       });
+
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok && response.status !== 401) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
 
@@ -105,9 +111,16 @@ const Login = () => {
       login(data.data.user, data.data.tokens);
       
       console.log('MongoDB authentication successful');
+      console.log('User data:', data.data.user);
+      console.log('Tokens:', data.data.tokens);
+      
+      // Debug: Check what's stored in localStorage
+      console.log('Stored user:', localStorage.getItem('user'));
+      console.log('Stored access token:', localStorage.getItem('accessToken') ? 'Present' : 'Missing');
+      console.log('Stored refresh token:', localStorage.getItem('refreshToken') ? 'Present' : 'Missing');
 
       // Check if user is admin and redirect accordingly
-      const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
+      const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'ashnajacob003@gmail.com';
       if (email === ADMIN_EMAIL) {
         console.log('Admin user detected in login, redirecting to admin dashboard');
         navigate('/admin', { replace: true });
@@ -125,6 +138,12 @@ const Login = () => {
         setErrorType('network');
       } else if (err.message?.includes('timeout')) {
         setError('The request timed out. Please check your connection and try again.');
+        setErrorType('network');
+      } else if (err.message?.includes('Failed to fetch')) {
+        setError('Network error. Please check your internet connection and try again.');
+        setErrorType('network');
+      } else if (err.message?.includes('HTTP error')) {
+        setError('Server error. Please try again in a few moments.');
         setErrorType('network');
       } else {
         setError('An unexpected error occurred. Please try again or contact support if the problem persists.');
@@ -280,6 +299,30 @@ const Login = () => {
               Sign up
             </Link>
           </p>
+          
+          {/* Debug Test Buttons - Remove in production */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={async () => {
+                  console.log('=== RUNNING AUTH TEST ===');
+                  await testAuthFlow();
+                }}
+                className="block w-full px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+              >
+                Test Auth Flow (Dev Only)
+              </button>
+              <button
+                onClick={async () => {
+                  console.log('=== RUNNING MUSIC API TEST ===');
+                  await testMusicAPIs();
+                }}
+                className="block w-full px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Test Music APIs (Dev Only)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

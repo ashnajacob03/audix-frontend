@@ -16,27 +16,38 @@ class ApiService {
   async get(endpoint, options = {}) {
     const { params, headers } = options || {};
     const qs = this.buildQueryString(params);
-    return this.request(`${endpoint}${qs}`);
+    return this.request(`${endpoint}${qs}`, { headers, suppressAuthRedirect: options.suppressAuthRedirect });
   }
 
   async post(endpoint, body, options = {}) {
     const { headers } = options || {};
-    return this.request(endpoint, { method: 'POST', body, headers });
+    console.log('POST request:', { endpoint, body, options });
+    return this.request(endpoint, { method: 'POST', body, headers, suppressAuthRedirect: options.suppressAuthRedirect });
   }
 
   async put(endpoint, body, options = {}) {
     const { headers } = options || {};
-    return this.request(endpoint, { method: 'PUT', body, headers });
+    return this.request(endpoint, { method: 'PUT', body, headers, suppressAuthRedirect: options.suppressAuthRedirect });
   }
 
   async delete(endpoint, options = {}) {
     const { headers, body } = options || {};
-    return this.request(endpoint, { method: 'DELETE', headers, body });
+    return this.request(endpoint, { method: 'DELETE', headers, body, suppressAuthRedirect: options.suppressAuthRedirect });
   }
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem('accessToken');
+
+    // Debug logging
+    if (endpoint.includes('/music/')) {
+      console.log('API Request Debug:', {
+        endpoint,
+        hasToken: !!token,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 20) + '...'
+      });
+    }
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const max429Retries = 3;
@@ -67,9 +78,14 @@ class ApiService {
         }
 
         if (!response.ok) {
+          console.log(`API request failed with status ${response.status} for ${endpoint}`);
+          
           // Handle token expiration
           if (response.status === 401) {
+            console.log('401 Unauthorized - attempting token refresh');
             const refreshToken = localStorage.getItem('refreshToken');
+            console.log('Refresh token available:', !!refreshToken);
+            
             if (refreshToken) {
               try {
                 const refreshResponse = await this.refreshToken(refreshToken);
@@ -93,19 +109,32 @@ class ApiService {
 
                 return retryData;
               } catch (refreshError) {
-                // Refresh failed, redirect to login
+                console.error('Token refresh failed:', refreshError);
+                // Refresh failed: optionally suppress redirect for passive UI use-cases
+                if (!options.suppressAuthRedirect) {
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('refreshToken');
+                  localStorage.removeItem('user');
+                  window.dispatchEvent(new CustomEvent('authTokenExpired'));
+                }
+                // If suppressAuthRedirect is true, don't retry the request
+                if (options.suppressAuthRedirect) {
+                  return { error: 'Authentication failed' };
+                }
+                throw new Error('Session expired. Please log in again.');
+              }
+            } else {
+              // No refresh token: optionally suppress redirect
+              if (!options.suppressAuthRedirect) {
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
                 localStorage.removeItem('user');
                 window.dispatchEvent(new CustomEvent('authTokenExpired'));
-                throw new Error('Session expired. Please log in again.');
               }
-            } else {
-              // No refresh token, redirect to login
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
-              localStorage.removeItem('user');
-              window.dispatchEvent(new CustomEvent('authTokenExpired'));
+              // If suppressAuthRedirect is true, don't retry the request
+              if (options.suppressAuthRedirect) {
+                return { error: 'Authentication failed' };
+              }
               throw new Error('Session expired. Please log in again.');
             }
           }
@@ -178,6 +207,8 @@ class ApiService {
   }
 
   async refreshToken(refreshToken) {
+    console.log('Attempting token refresh with token:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'null');
+    
     // Don't use the main request method to avoid infinite loops
     const response = await fetch(`${this.baseURL}/auth/refresh-token`, {
       method: 'POST',
@@ -187,9 +218,13 @@ class ApiService {
       body: JSON.stringify({ refreshToken }),
     });
 
+    console.log('Refresh token response status:', response.status);
+
     const data = await response.json();
+    console.log('Refresh token response data:', data);
 
     if (!response.ok) {
+      console.error('Token refresh failed:', data);
       throw new Error(data.message || 'Token refresh failed');
     }
 
@@ -228,6 +263,13 @@ class ApiService {
     });
   }
 
+  async updateProfilePicture(picture) {
+    return this.request('/user/profile-picture', {
+      method: 'PUT',
+      body: { picture },
+    });
+  }
+
   async updatePreferences(preferences) {
     return this.request('/user/preferences', {
       method: 'PUT',
@@ -251,6 +293,14 @@ class ApiService {
 
   async getUserStats() {
     return this.request('/user/stats');
+  }
+
+  // Subscription endpoints
+  async updateSubscription({ accountType, subscriptionExpires = null }) {
+    return this.request('/user/subscription', {
+      method: 'PUT',
+      body: { accountType, subscriptionExpires },
+    });
   }
 
   // Social endpoints
@@ -279,8 +329,8 @@ class ApiService {
   // ===== MUSIC API METHODS =====
 
   // Get all songs with filters
-  async getSongs(params = {}) {
-    return this.get('/music/songs', { params });
+  async getSongs(params = {}, options = {}) {
+    return this.get('/music/songs', { params, ...options });
   }
 
   // Get song by ID
@@ -296,16 +346,18 @@ class ApiService {
   }
 
   // Get popular songs
-  async getPopularSongs(limit = 20, genre) {
+  async getPopularSongs(limit = 20, genre, options = {}) {
     return this.get('/music/popular', { 
-      params: { limit, genre } 
+      params: { limit, genre },
+      ...options
     });
   }
 
   // Get personalized recommendations
-  async getRecommendations(limit = 20) {
+  async getRecommendations(limit = 20, options = {}) {
     return this.get('/music/recommendations', { 
-      params: { limit } 
+      params: { limit },
+      ...options
     });
   }
 
@@ -319,50 +371,53 @@ class ApiService {
   // ===== PLAYLIST API METHODS =====
 
   // Get user's playlists
-  async getPlaylists() {
-    return this.get('/music/playlists');
+  async getPlaylists(options = {}) {
+    return this.get('/music/playlists', options);
   }
 
   // Create new playlist
-  async createPlaylist(playlistData) {
-    return this.post('/music/playlists', playlistData);
+  async createPlaylist(playlistData, options = {}) {
+    return this.post('/music/playlists', playlistData, options);
   }
 
   // Get playlist by ID
-  async getPlaylist(id) {
-    return this.get(`/music/playlists/${id}`);
+  async getPlaylist(id, options = {}) {
+    return this.get(`/music/playlists/${id}`, options);
   }
 
   // Add song to playlist
-  async addSongToPlaylist(playlistId, songId) {
-    return this.post(`/music/playlists/${playlistId}/songs`, { songId });
+  async addSongToPlaylist(playlistId, songId, options = {}) {
+    console.log('addSongToPlaylist called with:', { playlistId, songId, options });
+    const body = { songId };
+    console.log('Request body:', body);
+    return this.post(`/music/playlists/${playlistId}/songs`, body, options);
   }
 
   // Remove song from playlist
-  async removeSongFromPlaylist(playlistId, songId) {
-    return this.delete(`/music/playlists/${playlistId}/songs/${songId}`);
+  async removeSongFromPlaylist(playlistId, songId, options = {}) {
+    return this.delete(`/music/playlists/${playlistId}/songs/${songId}`, options);
   }
 
   // Follow/unfollow playlist
-  async followPlaylist(playlistId) {
-    return this.post(`/music/playlists/${playlistId}/follow`);
+  async followPlaylist(playlistId, options = {}) {
+    return this.post(`/music/playlists/${playlistId}/follow`, undefined, options);
   }
 
   // ===== USER MUSIC ACTIONS =====
 
   // Like/unlike song
-  async likeSong(songId) {
-    return this.post(`/music/songs/${songId}/like`);
+  async likeSong(songId, options = {}) {
+    return this.post(`/music/songs/${songId}/like`, undefined, options);
   }
 
   // Get user's liked songs
-  async getLikedSongs() {
-    return this.get('/music/liked-songs');
+  async getLikedSongs(options = {}) {
+    return this.get('/music/liked-songs', options);
   }
 
   // Get user's recently played songs
-  async getRecentSongs() {
-    return this.get('/music/recent');
+  async getRecentSongs(options = {}) {
+    return this.get('/music/recent', options);
   }
 
   // Utility methods

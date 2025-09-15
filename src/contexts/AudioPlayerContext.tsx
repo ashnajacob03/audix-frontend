@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import { useCustomAuth } from './AuthContext';
 
 interface Song {
   _id: string;
@@ -55,6 +57,7 @@ interface AudioPlayerProviderProps {
 }
 
 export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ children }) => {
+  const { isAuthenticated } = useCustomAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -84,13 +87,9 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     };
 
     const handleEnded = () => {
-      // Auto-play next song if available
-      if (currentIndex < queue.length - 1) {
-        next();
-      } else {
-        setIsPlaying(false);
-        setCurrentTime(0);
-      }
+      // Always attempt to go to the next song; if we're at the end,
+      // the next() handler will fetch a recommendation.
+      next();
     };
 
     const handleError = (e: Event) => {
@@ -119,10 +118,11 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       // Prefer a direct audio URL if provided by the API
       // Then try a provided streamUrl, then our backend stream endpoint, then previewUrl
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
+      // Prioritize backend proxy stream first as it handles CORS and fallbacks
       const candidateUrls = [
+        `${apiBase}/music/songs/${song._id}/stream`,
         song.audioUrl,
         song.streamUrl,
-        `${apiBase}/music/songs/${song._id}/stream`,
         song.previewUrl,
       ].filter(Boolean) as string[];
 
@@ -134,11 +134,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       let lastError: unknown = null;
       for (const url of candidateUrls) {
         try {
+          // Reset src before setting a new one to avoid readyState glitches
+          audioRef.current.src = '';
           audioRef.current.src = url;
           audioRef.current.volume = volume;
           audioRef.current.currentTime = 0;
-          // Force the browser to load metadata before play attempt
-          await audioRef.current.load?.();
+          // Some browsers reject play() promise if not ready; calling play() directly is fine after user gesture
           await audioRef.current.play();
           played = true;
           break;
@@ -154,13 +155,24 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       }
 
       setCurrentSong(song);
-      setQueue([song]);
-      setCurrentIndex(0);
+      // Keep queue intact. If the song exists in the queue, move index to it.
+      // If it doesn't, append it and move index to the end.
+      setQueue(prev => {
+        const idx = prev.findIndex(s => s._id === song._id);
+        if (idx !== -1) {
+          setCurrentIndex(idx);
+          return prev;
+        }
+        const nextQueue = [...prev, song];
+        setCurrentIndex(nextQueue.length - 1);
+        return nextQueue;
+      });
       setCurrentTime(0);
       setIsPlaying(true);
     } catch (error) {
       console.error('Failed to play song:', error);
       // Fallback: try to play with a different approach or show error
+      setIsPlaying(false);
     }
   }, [volume]);
 
@@ -211,9 +223,85 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       const nextIndex = currentIndex + 1;
       const nextSong = queue[nextIndex];
       setCurrentIndex(nextIndex);
-      await playSong(nextSong);
+      try {
+        await playSong(nextSong);
+        return;
+      } catch (e) {
+        console.error('Next song failed to play, trying recommendation:', e);
+        // fall through to recommendation logic
+      }
     }
-  }, [currentIndex, queue, playSong]);
+
+    // At end of queue: fetch a recommendation and continue
+    try {
+      const existingIds = new Set(queue.map(s => s._id));
+      // Only fetch recommendations if user is authenticated
+      let recs = [];
+      if (isAuthenticated) {
+        try {
+          recs = await api.getRecommendations(10, { suppressAuthRedirect: true });
+        } catch (apiError) {
+          console.log('Recommendations API failed, trying popular songs:', apiError.message);
+          // Fallback to popular songs if recommendations fail
+          try {
+            recs = await api.getPopularSongs(10, undefined, { suppressAuthRedirect: true });
+          } catch (popularError) {
+            console.log('Popular songs API failed, trying random songs:', popularError.message);
+            // Final fallback to random songs
+            try {
+              recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
+            } catch (songsError) {
+              console.log('Random songs API failed:', songsError.message);
+              recs = [];
+            }
+          }
+        }
+      } else {
+        // For unauthenticated users, try to get popular songs
+        try {
+          recs = await api.getPopularSongs(10, { suppressAuthRedirect: true });
+        } catch (popularError) {
+          console.log('Popular songs API failed for unauthenticated user, trying random songs:', popularError.message);
+          // Fallback to random songs
+          try {
+            recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
+          } catch (songsError) {
+            console.log('Random songs API failed:', songsError.message);
+            recs = [];
+          }
+        }
+      }
+      const recommended = Array.isArray(recs)
+        ? recs.find((s: any) => s && s._id && !existingIds.has(s._id))
+        : null;
+
+      if (recommended) {
+        setQueue(prev => [...prev, recommended]);
+        setCurrentIndex(prev => prev + 1);
+        try {
+          await playSong(recommended as any);
+          return;
+        } catch (err) {
+          console.error('Recommended next failed, trying another:', err);
+        }
+      }
+
+      if (Array.isArray(recs) && recs.length > 0) {
+        const fallback = recs[0];
+        setQueue(prev => [...prev, fallback]);
+        setCurrentIndex(prev => prev + 1);
+        try {
+          await playSong(fallback as any);
+        } catch (err2) {
+          console.error('Fallback recommended next failed:', err2);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch recommended next song:', e);
+      // If recommendations fail, just stop at the end of the queue
+      // Don't throw error to prevent breaking the UI
+    }
+  }, [currentIndex, queue, playSong, isAuthenticated]);
 
   // Previous song
   const previous = useCallback(async () => {
@@ -221,9 +309,84 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       const prevIndex = currentIndex - 1;
       const prevSong = queue[prevIndex];
       setCurrentIndex(prevIndex);
-      await playSong(prevSong);
+      try {
+        await playSong(prevSong);
+        return;
+      } catch (e) {
+        console.error('Previous song failed to play, trying recommendation:', e);
+      }
     }
-  }, [currentIndex, queue, playSong]);
+
+    // At start of queue: fetch a recommendation and play it as previous
+    try {
+      const existingIds = new Set(queue.map(s => s._id));
+      // Only fetch recommendations if user is authenticated
+      let recs = [];
+      if (isAuthenticated) {
+        try {
+          recs = await api.getRecommendations(10, { suppressAuthRedirect: true });
+        } catch (apiError) {
+          console.log('Recommendations API failed, trying popular songs:', apiError.message);
+          // Fallback to popular songs if recommendations fail
+          try {
+            recs = await api.getPopularSongs(10, undefined, { suppressAuthRedirect: true });
+          } catch (popularError) {
+            console.log('Popular songs API failed, trying random songs:', popularError.message);
+            // Final fallback to random songs
+            try {
+              recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
+            } catch (songsError) {
+              console.log('Random songs API failed:', songsError.message);
+              recs = [];
+            }
+          }
+        }
+      } else {
+        // For unauthenticated users, try to get popular songs
+        try {
+          recs = await api.getPopularSongs(10, { suppressAuthRedirect: true });
+        } catch (popularError) {
+          console.log('Popular songs API failed for unauthenticated user, trying random songs:', popularError.message);
+          // Fallback to random songs
+          try {
+            recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
+          } catch (songsError) {
+            console.log('Random songs API failed:', songsError.message);
+            recs = [];
+          }
+        }
+      }
+      const recommended = Array.isArray(recs)
+        ? recs.find((s: any) => s && s._id && !existingIds.has(s._id))
+        : null;
+
+      if (recommended) {
+        setQueue(prev => [recommended, ...prev]);
+        setCurrentIndex(0);
+        try {
+          await playSong(recommended as any);
+          return;
+        } catch (err) {
+          console.error('Recommended previous failed, trying another:', err);
+        }
+      }
+
+      if (Array.isArray(recs) && recs.length > 0) {
+        const fallback = recs[0];
+        setQueue(prev => [fallback, ...prev]);
+        setCurrentIndex(0);
+        try {
+          await playSong(fallback as any);
+        } catch (err2) {
+          console.error('Fallback recommended previous failed:', err2);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch recommended previous song:', e);
+      // If recommendations fail, just stay at the current song
+      // Don't throw error to prevent breaking the UI
+    }
+  }, [currentIndex, queue, playSong, isAuthenticated]);
 
   // Seek to specific time
   const seek = useCallback((time: number) => {

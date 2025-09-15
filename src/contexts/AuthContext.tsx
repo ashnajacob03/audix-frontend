@@ -41,14 +41,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Check if user is logged in on app start
-    const checkAuthStatus = () => {
+    const checkAuthStatus = async () => {
       try {
         const storedUser = localStorage.getItem('user');
         const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
         
         if (storedUser && accessToken) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
+          
+          // Verify token is still valid by making a test request
+          try {
+            const response = await fetch('http://localhost:3002/api/user/profile', {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (!response.ok && response.status === 401) {
+              // Token expired, try to refresh
+              if (refreshToken) {
+                try {
+                  const refreshResponse = await fetch('http://localhost:3002/api/auth/refresh-token', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ refreshToken }),
+                  });
+                  
+                  if (refreshResponse.ok) {
+                    const refreshData = await refreshResponse.json();
+                    localStorage.setItem('accessToken', refreshData.data.tokens.accessToken);
+                    localStorage.setItem('refreshToken', refreshData.data.tokens.refreshToken);
+                    console.log('Token refreshed successfully');
+                  } else {
+                    throw new Error('Refresh failed');
+                  }
+                } catch (refreshError) {
+                  console.error('Token refresh failed:', refreshError);
+                  // Clear all auth data
+                  localStorage.removeItem('user');
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('refreshToken');
+                  setUser(null);
+                }
+              } else {
+                // No refresh token, clear auth data
+                localStorage.removeItem('user');
+                localStorage.removeItem('accessToken');
+                setUser(null);
+              }
+            }
+          } catch (testError) {
+            console.error('Token validation failed:', testError);
+            // Clear auth data on any error
+            localStorage.removeItem('user');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
@@ -56,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('user');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -85,10 +140,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = (userData: User, tokens: { accessToken: string; refreshToken: string }) => {
+    console.log('AuthContext: Storing user data and tokens:', {
+      userData: userData,
+      hasAccessToken: !!tokens.accessToken,
+      hasRefreshToken: !!tokens.refreshToken,
+      tokenLength: tokens.accessToken?.length
+    });
+    
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('refreshToken', tokens.refreshToken);
+    
+    console.log('AuthContext: Tokens stored, checking localStorage:', {
+      storedAccessToken: !!localStorage.getItem('accessToken'),
+      storedRefreshToken: !!localStorage.getItem('refreshToken'),
+      storedUser: !!localStorage.getItem('user')
+    });
   };
 
   const logout = async () => {
@@ -132,6 +200,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
   };
+
+  // Debug logging for authentication state changes
+  useEffect(() => {
+    console.log('AuthContext state changed:', {
+      user: user ? { id: user.id, email: user.email } : null,
+      isAuthenticated: !!user,
+      isLoading
+    });
+  }, [user, isLoading]);
 
   return (
     <AuthContext.Provider value={value}>

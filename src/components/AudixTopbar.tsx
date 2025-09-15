@@ -1,5 +1,5 @@
 
-import { Crown, Search, User, BarChart3, Heart, Music, ChevronDown, LogOut, Settings } from "lucide-react";
+import { Crown, Search, User, BarChart3, Heart, Music, ChevronDown, LogOut, Settings, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -28,6 +28,7 @@ const AudixTopbar = () => {
   const { userProfile } = useUserProfile();
   const { logout } = useLogout();
   const { isAuthenticated, user: customUser, logout: customLogout } = useCustomAuth();
+  const isPremium = (customUser?.accountType === 'premium') || (userProfile as any)?.accountType === 'premium';
 
   return (
     <div
@@ -74,8 +75,8 @@ const AudixTopbar = () => {
           </Link>
         )}
 
-        {/* Premium upgrade button - Only show when user is logged in */}
-        {isAuthenticated && (
+        {/* Premium upgrade button - Only show when user is logged in and not premium */}
+        {isAuthenticated && !isPremium && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -147,6 +148,15 @@ const AudixTopbar = () => {
                   Settings
                 </Link>
               </DropdownMenuItem>
+
+              {isPremium && (
+                <DropdownMenuItem asChild>
+                  <Link to="/cancel-premium" className="flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:text-white hover:bg-red-600/20 cursor-pointer">
+                    <XCircle className="w-4 h-4" />
+                    Cancel Premium
+                  </Link>
+                </DropdownMenuItem>
+              )}
               
               <DropdownMenuItem asChild>
                 <button

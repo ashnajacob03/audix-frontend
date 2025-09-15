@@ -13,9 +13,11 @@ import {
   Music,
   Volume1,
   VolumeX,
+  Heart,
+  ListPlus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +25,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { useCustomAuth } from "@/contexts/AuthContext";
+import { SkipLimitModal } from "@/components/SkipLimitModal";
+import api from "@/services/api";
+// Using a custom lightweight modal below instead of dropdown for a more professional UX
 
 const formatTime = (time: number) => {
   if (isNaN(time)) return "0:00";
@@ -32,19 +38,148 @@ const formatTime = (time: number) => {
 };
 
 export const PlaybackControls = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useCustomAuth();
   const {
     currentSong,
     isPlaying,
     currentTime,
     duration,
     volume,
+    skipCount,
+    showSkipLimitModal,
     pause,
     resume,
     next,
     previous,
     seek,
-    setVolume
+    setVolume,
+    closeSkipLimitModal
   } = useAudioPlayer();
+
+  const [isLiked, setIsLiked] = useState(false);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+  const [addBusyId, setAddBusyId] = useState<string | null>(null);
+
+  // Sync liked state when song changes
+  useEffect(() => {
+    let cancelled = false;
+    const loadLiked = async () => {
+      if (!currentSong) return;
+      if (!isAuthenticated) return;
+      try {
+        const liked = await api.getLikedSongs({ suppressAuthRedirect: true } as any);
+        if (!cancelled) {
+          const found = Array.isArray(liked) && liked.some((s: any) => s && (s._id === currentSong._id));
+          setIsLiked(!!found);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    setIsLiked(false);
+    loadLiked();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSong?._id, isAuthenticated]);
+
+  const handleToggleLike = async () => {
+    if (!currentSong || likeBusy) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setLikeBusy(true);
+    try {
+      const resp = await api.likeSong(currentSong._id, { suppressAuthRedirect: true } as any);
+      const newState = typeof resp?.isLiked === 'boolean' ? resp.isLiked : !isLiked;
+      setIsLiked(newState);
+    } catch (e) {
+      // optimistic revert
+    } finally {
+      setLikeBusy(false);
+    }
+  };
+
+  const ensurePlaylistsLoaded = async () => {
+    if (isLoadingPlaylists) return;
+    setIsLoadingPlaylists(true);
+    try {
+      const data = await api.getPlaylists({ suppressAuthRedirect: true } as any);
+      // Check if the response is an error object
+      if (data && data.error) {
+        setPlaylists([]);
+      } else {
+        setPlaylists(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      setPlaylists([]);
+    } finally {
+      setIsLoadingPlaylists(false);
+    }
+  };
+
+  const handleAddToPlaylist = async (playlistId: string) => {
+    if (!currentSong) {
+      console.log('No current song to add to playlist');
+      return;
+    }
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login');
+      setIsPlaylistModalOpen(false);
+      navigate('/login');
+      return;
+    }
+    console.log('Adding song to playlist:', playlistId, currentSong._id);
+    console.log('Current song object:', currentSong);
+    setAddBusyId(playlistId);
+    try {
+      const result = await api.addSongToPlaylist(playlistId, currentSong._id, { suppressAuthRedirect: true } as any);
+      // Check if the response is an error object
+      if (result && result.error) {
+        console.log('Authentication failed, cannot add song to playlist');
+        // Don't close the modal, let user try again
+      } else {
+        console.log('Successfully added song to playlist');
+        setIsPlaylistModalOpen(false);
+      }
+    } catch (e) {
+      console.error('Failed to add song to playlist:', e);
+      // optionally notify
+    } finally {
+      setAddBusyId(null);
+    }
+  };
+
+  const handleCreatePlaylist = async () => {
+    if (!newPlaylistName.trim()) return;
+    if (!isAuthenticated) {
+      setIsPlaylistModalOpen(false);
+      navigate('/login');
+      return;
+    }
+    setCreatingPlaylist(true);
+    try {
+      const payload = { name: newPlaylistName.trim(), title: newPlaylistName.trim() } as any;
+      const created = await api.createPlaylist(payload, { suppressAuthRedirect: true } as any);
+      await ensurePlaylistsLoaded();
+      if (created && created._id && currentSong) {
+        await api.addSongToPlaylist(created._id, currentSong._id, { suppressAuthRedirect: true } as any);
+      }
+      setIsPlaylistModalOpen(false);
+      setNewPlaylistName("");
+    } catch (e) {
+      // optionally notify
+    } finally {
+      setCreatingPlaylist(false);
+    }
+  };
 
   // Handle play/pause
   const handlePlayPause = () => {
@@ -81,8 +216,9 @@ export const PlaybackControls = () => {
   }
 
   return (
-    <div className="h-[100px] bg-gradient-to-b from-zinc-900 to-black border-t border-white/5 p-4">
-      <div className="flex justify-between items-center h-full max-w-[1800px] mx-auto">
+    <div>
+      <div className="h-[100px] bg-gradient-to-b from-zinc-900 to-black border-t border-white/5 p-4">
+        <div className="flex justify-between items-center h-full max-w-[1800px] mx-auto">
         {/* currently playing song */}
         <div className="hidden sm:flex items-center gap-4 min-w-[180px] w-[30%]">
           {currentSong && (
@@ -132,6 +268,38 @@ export const PlaybackControls = () => {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Like button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`p-2 rounded-full transition-colors ${isLiked ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'} hover:bg-zinc-800/30`}
+                      onClick={handleToggleLike}
+                      aria-label={isLiked ? 'Unlike' : 'Like'}
+                    >
+                      <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500' : ''}`} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Add to playlist modal trigger */}
+              <button
+                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/30 rounded-full transition-colors"
+                aria-label="Add to playlist"
+                onClick={() => {
+                  setIsPlaylistModalOpen(true);
+                  if (isAuthenticated) {
+                    void ensurePlaylistsLoaded();
+                  }
+                }}
+              >
+                <ListPlus className="h-5 w-5" />
+              </button>
             </>
           )}
         </div>
@@ -244,6 +412,76 @@ export const PlaybackControls = () => {
           </div>
         </div>
       </div>
+      </div>
+      
+      {/* Skip Limit Modal */}
+      <SkipLimitModal
+        isOpen={showSkipLimitModal}
+        onClose={closeSkipLimitModal}
+        skipCount={skipCount}
+        skipLimit={5}
+      />
+
+      {/* Add to Playlist Modal */}
+      {isPlaylistModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsPlaylistModalOpen(false)} />
+          <div className="relative w-full sm:max-w-md bg-zinc-900 border border-white/10 rounded-t-xl sm:rounded-xl p-4 sm:p-6 m-0 sm:m-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold text-base">Add to playlist</h3>
+              <button className="text-zinc-400 hover:text-white" onClick={() => setIsPlaylistModalOpen(false)}>✕</button>
+            </div>
+
+            {!isAuthenticated ? (
+              <div className="text-sm text-zinc-300">
+                <p>Please log in to create and manage playlists.</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Create new playlist</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={newPlaylistName}
+                        onChange={(e) => setNewPlaylistName(e.target.value)}
+                        placeholder="Playlist name"
+                        className="flex-1 bg-zinc-800 text-white text-sm rounded-md px-3 py-2 border border-white/10 outline-none focus:border-white/20"
+                      />
+                      <Button disabled={creatingPlaylist || !newPlaylistName.trim()} onClick={handleCreatePlaylist}>
+                        {creatingPlaylist ? 'Creating…' : 'Create'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs text-zinc-400">Your playlists</label>
+                      {isLoadingPlaylists ? <span className="text-xs text-zinc-500">Loading…</span> : null}
+                    </div>
+                    <div className="max-h-60 overflow-auto rounded-md border border-white/10 divide-y divide-white/5">
+                      {(!isLoadingPlaylists && playlists.length === 0) && (
+                        <div className="px-3 py-3 text-sm text-zinc-400">No playlists found</div>
+                      )}
+                      {playlists.map((pl: any) => (
+                        <button
+                          key={pl._id}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800/60 text-zinc-200 flex items-center justify-between"
+                          onClick={() => handleAddToPlaylist(pl._id)}
+                          disabled={addBusyId === pl._id}
+                        >
+                          <span className="truncate">{pl.name}</span>
+                          {addBusyId === pl._id ? <span className="text-xs text-zinc-400">Adding…</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -408,7 +408,7 @@ const AdminDashboard = () => {
             <div className="space-y-3">
               {recentUsers.length > 0 ? (
                 recentUsers.map((user, index) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 bg-zinc-700/20 hover:bg-zinc-700/40 rounded-xl transition-colors group">
+                  <div key={`${user.id}-${index}`} className="flex items-center justify-between p-4 bg-zinc-700/20 hover:bg-zinc-700/40 rounded-xl transition-colors group">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-zinc-600/50 rounded-lg flex items-center justify-center">
                         <span className="text-zinc-300 font-mono text-sm font-medium">

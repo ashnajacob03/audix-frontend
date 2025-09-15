@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import AudixTopbar from '@/components/AudixTopbar';
-import UserAvatar from '@/components/UserAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   User, 
@@ -14,16 +13,9 @@ import {
   Phone, 
   MapPin, 
   Calendar,
-  Shield,
-  Bell,
-  Palette,
   Globe,
-  Lock,
-  Eye,
-  EyeOff,
   Upload,
   Trash2,
-  Check,
   AlertCircle,
   Settings as SettingsIcon
 } from 'lucide-react';
@@ -31,14 +23,15 @@ import { toast } from 'react-hot-toast';
 import apiService from '@/services/api';
 
 const Settings = () => {
-  const { user } = useCustomAuth();
+  const { user, updateUser } = useCustomAuth();
   const { userProfile, isLoading, refetch } = useUserProfile();
+  const accountType = (user as any)?.accountType || (userProfile as any)?.accountType || 'free';
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form states
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab] = useState('profile');
   const [profileImage, setProfileImage] = useState<string | null>(
     localStorage.getItem('userProfileImage')
   );
@@ -157,13 +150,16 @@ const Settings = () => {
   };
 
   const handleNestedInputChange = (parent: string, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent as keyof typeof prev],
-        [field]: value
-      }
-    }));
+    setFormData(prev => {
+      const parentValue = (prev as any)[parent] || {};
+      return {
+        ...prev,
+        [parent]: {
+          ...parentValue,
+          [field]: value
+        }
+      } as any;
+    });
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,6 +185,29 @@ const Settings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // If profile image changed locally, persist to backend first
+      if (profileImage !== (user?.picture || null)) {
+        try {
+          const picResp = await apiService.updateProfilePicture(profileImage);
+          if (!picResp.success) {
+            throw new Error(picResp.message || 'Failed to update profile picture');
+          }
+          // Update auth user context to reflect new picture globally
+          if (user) {
+            const newUserData = { ...(user as any), picture: (picResp as any)?.data?.picture ?? (profileImage || undefined) } as any;
+            updateUser(newUserData);
+          }
+          // Store latest in localStorage for immediate UI usage
+          if (profileImage) {
+            localStorage.setItem('userProfileImage', profileImage);
+          } else {
+            localStorage.removeItem('userProfileImage');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Failed to update profile picture');
+        }
+      }
+
       // Prepare profile data for API
       const profileData = {
         firstName: formData.firstName,
@@ -254,13 +273,33 @@ const Settings = () => {
     setIsEditing(false);
   };
 
-  const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'account', label: 'Account', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'privacy', label: 'Privacy', icon: Lock },
-    { id: 'appearance', label: 'Appearance', icon: Palette }
-  ];
+  const cancelPremium = async () => {
+    try {
+      const resp = await apiService.updateSubscription({ accountType: 'free', subscriptionExpires: null });
+      if (!(resp as any)?.success) {
+        throw new Error((resp as any)?.message || 'Failed to cancel premium');
+      }
+      if (user) {
+        updateUser({ ...(user as any), accountType: 'free' } as any);
+      }
+      const mongoUserRaw = localStorage.getItem('mongoUser');
+      if (mongoUserRaw) {
+        try {
+          const mongoUser = JSON.parse(mongoUserRaw);
+          mongoUser.accountType = 'free';
+          localStorage.setItem('mongoUser', JSON.stringify(mongoUser));
+        } catch {}
+      }
+      toast.success('Premium cancelled. You are on Free plan.');
+      await fetchUserProfile();
+      refetch();
+    } catch (e: any) {
+      console.error('Cancel premium error:', e);
+      toast.error(e?.message || 'Failed to cancel premium');
+    }
+  };
+
+  
 
   if (isLoading || isLoadingProfile) {
     return (
@@ -625,11 +664,17 @@ const Settings = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
-                              Free Plan
+                              {accountType === 'premium' ? 'Premium Plan' : 'Free Plan'}
                             </span>
-                            <button className="px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white rounded-lg transition-all duration-200">
-                              Upgrade to Premium
-                            </button>
+                            {accountType !== 'premium' ? (
+                              <button className="px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white rounded-lg transition-all duration-200">
+                                Upgrade to Premium
+                              </button>
+                            ) : (
+                              <button onClick={cancelPremium} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                                Cancel Premium
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

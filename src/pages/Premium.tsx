@@ -1,29 +1,120 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import toast from 'react-hot-toast';
 import { 
   Crown, 
   Check, 
   X, 
-  Music, 
   Download, 
-  Shuffle, 
-  SkipForward, 
   Volume2, 
   Headphones,
-  Zap,
-  Star,
   ArrowLeft,
   CreditCard,
   Shield
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import apiService from '@/services/api';
 
 const Premium = () => {
-  const { user, isAuthenticated } = useCustomAuth();
+  const { user, isAuthenticated, updateUser } = useCustomAuth();
   const { userProfile } = useUserProfile();
+  const accountType = (user as any)?.accountType || (userProfile as any)?.accountType || 'free';
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
+  const navigate = useNavigate();
+
+  const persistSubscription = async (): Promise<void> => {
+    // Prefer API helper if available; fallback to direct fetch during HMR edge cases
+    if (apiService && typeof (apiService as any).updateSubscription === 'function') {
+      await (apiService as any).updateSubscription({ accountType: 'premium', subscriptionExpires: null });
+      return;
+    }
+    let API_BASE_URL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
+    // Normalize base URL if someone configured it without protocol/host
+    if (!/^https?:\/\//i.test(API_BASE_URL)) {
+      if (API_BASE_URL.startsWith('//')) {
+        API_BASE_URL = `${window.location.protocol}${API_BASE_URL}`;
+      } else if (API_BASE_URL.startsWith(':')) {
+        API_BASE_URL = `http://localhost${API_BASE_URL}`; // e.g. :3002/api -> http://localhost:3002/api
+      } else if (API_BASE_URL.startsWith('/')) {
+        API_BASE_URL = `${window.location.origin}${API_BASE_URL}`;
+      } else {
+        API_BASE_URL = `${window.location.origin}/${API_BASE_URL.replace(/^\/*/, '')}`;
+      }
+    }
+    const token = localStorage.getItem('accessToken');
+    const resp = await fetch(`${API_BASE_URL}/user/subscription`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ accountType: 'premium', subscriptionExpires: null })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data?.message || 'Server rejected subscription update');
+    }
+  };
+
+  const handleCancelPremium = async () => {
+    try {
+      // Update backend subscription to free
+      if (apiService && typeof (apiService as any).updateSubscription === 'function') {
+        const resp = await (apiService as any).updateSubscription({ accountType: 'free', subscriptionExpires: null });
+        if (!(resp as any)?.success) {
+          throw new Error((resp as any)?.message || 'Failed to cancel subscription');
+        }
+      } else {
+        let API_BASE_URL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
+        if (!/^https?:\/\//i.test(API_BASE_URL)) {
+          if (API_BASE_URL.startsWith('//')) {
+            API_BASE_URL = `${window.location.protocol}${API_BASE_URL}`;
+          } else if (API_BASE_URL.startsWith(':')) {
+            API_BASE_URL = `http://localhost${API_BASE_URL}`;
+          } else if (API_BASE_URL.startsWith('/')) {
+            API_BASE_URL = `${window.location.origin}${API_BASE_URL}`;
+          } else {
+            API_BASE_URL = `${window.location.origin}/${API_BASE_URL.replace(/^\/*/, '')}`;
+          }
+        }
+        const token = localStorage.getItem('accessToken');
+        const resp = await fetch(`${API_BASE_URL}/user/subscription`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ accountType: 'free', subscriptionExpires: null })
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data?.message || 'Server rejected subscription update');
+        }
+      }
+
+      // Update local auth state
+      if (user) {
+        const updated: any = { ...user, accountType: 'free' };
+        updateUser(updated);
+      }
+      const mongoUserRaw = localStorage.getItem('mongoUser');
+      if (mongoUserRaw) {
+        try {
+          const mongoUser = JSON.parse(mongoUserRaw);
+          mongoUser.accountType = 'free';
+          localStorage.setItem('mongoUser', JSON.stringify(mongoUser));
+        } catch {}
+      }
+
+      toast.success('Premium cancelled. You are back on Free plan.');
+    } catch (e: any) {
+      console.error('Cancel premium error:', e);
+      toast.error(e?.message || 'Failed to cancel premium. Please try again.');
+    }
+  };
 
   const features = {
     free: [
@@ -50,26 +141,132 @@ const Premium = () => {
     ]
   };
 
+  // Single source of truth for prices (INR)
+  const PRICE_INR = { monthly: 99, yearly: 999 } as const;
+  const formatINR = (value: number): string =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+
   const pricingPlans = {
     monthly: {
-      price: '$9.99',
+      price: formatINR(PRICE_INR.monthly),
       period: '/month',
       savings: null,
       description: 'Perfect for trying out Premium features'
     },
     yearly: {
-      price: '$99.99',
+      price: formatINR(PRICE_INR.yearly),
       period: '/year',
-      savings: 'Save $19.89',
+      savings: `Save ${formatINR((PRICE_INR.monthly * 12) - PRICE_INR.yearly)}`,
       description: 'Best value - 2 months free!'
     }
   };
 
-  const handleUpgrade = (plan: 'monthly' | 'yearly') => {
-    // Here you would integrate with your payment processor (Stripe, PayPal, etc.)
-    console.log(`Upgrading to ${plan} plan`);
-    // For now, just show an alert
-    alert(`Redirecting to payment for ${plan} plan...`);
+  const handleUpgrade = async (plan: 'monthly' | 'yearly') => {
+    const loadRazorpay = (): Promise<boolean> => {
+      return new Promise((resolve) => {
+        if (typeof window !== 'undefined' && (window as any).Razorpay) {
+          resolve(true);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+      });
+    };
+
+    const scriptLoaded = await loadRazorpay();
+    if (!scriptLoaded) {
+      toast.error('Failed to load payment SDK. Please try again.');
+      return;
+    }
+
+    const amountInPaise = PRICE_INR[plan] * 100; // amounts in paise (INR)
+    const keyFromEnv = (import.meta as any).env?.VITE_RAZORPAY_KEY || '';
+    const resolvedKey = keyFromEnv.trim();
+    if (!resolvedKey) {
+      toast('Simulating payment (no Razorpay key set)', { icon: '🧪' });
+      // Simulate a successful payment: try to persist, then update local and redirect
+      setTimeout(async () => {
+        try {
+          await persistSubscription();
+          if (user) {
+            const updated: any = { ...user, accountType: 'premium' };
+            updateUser(updated);
+          }
+          const mongoUserRaw = localStorage.getItem('mongoUser');
+          if (mongoUserRaw) {
+            try {
+              const mongoUser = JSON.parse(mongoUserRaw);
+              mongoUser.accountType = 'premium';
+              localStorage.setItem('mongoUser', JSON.stringify(mongoUser));
+            } catch {}
+          }
+          toast.success('You are now Premium! Redirecting...');
+          navigate('/');
+        } catch (e: any) {
+          console.error('Failed to persist subscription:', e);
+          toast.error(e?.message || 'Failed to update subscription. Please try again.');
+        }
+      }, 800);
+      return;
+    }
+
+    const options: any = {
+      key: resolvedKey, // test key from env
+      amount: amountInPaise,
+      currency: 'INR',
+      name: 'Audix Premium',
+      description: `Upgrade to ${plan} plan`,
+      // Use HTTPS image to avoid mixed-content warnings inside Razorpay iframe
+      image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Logo_placeholder.svg',
+      handler: async (response: any) => {
+        try {
+          await persistSubscription();
+          if (user) {
+            const updated: any = { ...user, accountType: 'premium' };
+            updateUser(updated);
+          }
+          const mongoUserRaw = localStorage.getItem('mongoUser');
+          if (mongoUserRaw) {
+            try {
+              const mongoUser = JSON.parse(mongoUserRaw);
+              mongoUser.accountType = 'premium';
+              localStorage.setItem('mongoUser', JSON.stringify(mongoUser));
+            } catch {}
+          }
+          toast.success('You are now Premium! Redirecting...');
+          navigate('/');
+        } catch (e: any) {
+          console.error('Failed to persist subscription:', e);
+          toast.error(e?.message || 'Failed to update subscription. Please contact support.');
+        }
+        console.log('Razorpay success:', response);
+      },
+      modal: {
+        ondismiss: function () {
+          toast('Payment cancelled', { icon: '⚠️' });
+        }
+      },
+      prefill: {
+        name: userProfile?.firstName || user?.firstName || 'Audix User',
+        email: (user as any)?.email || 'user@example.com',
+      },
+      notes: {
+        plan,
+      },
+      theme: {
+        color: '#1db954',
+      },
+    };
+
+    const paymentObject = new (window as any).Razorpay(options);
+    paymentObject.on('payment.failed', function (response: any) {
+      console.error('Razorpay failure:', response);
+      toast.error('Payment failed. Please try again.');
+    });
+    paymentObject.open();
   };
 
   return (
@@ -113,7 +310,7 @@ const Premium = () => {
                   Welcome back, <span className="text-white font-medium">
                     {userProfile?.firstName || user?.firstName}
                   </span>!
-                  Ready to upgrade your music experience?
+                  {accountType === 'premium' ? ' You already have Premium. Enjoy the music!' : ' Ready to upgrade your music experience?'}
                 </p>
               </div>
             )}
@@ -154,7 +351,7 @@ const Premium = () => {
             <div className="bg-zinc-900/50 rounded-2xl p-8 border border-zinc-800">
               <div className="text-center mb-8">
                 <h3 className="text-2xl font-bold text-white mb-2">Free</h3>
-                <div className="text-4xl font-bold text-white mb-2">$0</div>
+                <div className="text-4xl font-bold text-white mb-2">₹0</div>
                 <p className="text-zinc-400">Forever free</p>
               </div>
               
@@ -177,7 +374,7 @@ const Premium = () => {
                 disabled
                 className="w-full py-3 px-4 bg-zinc-700 text-zinc-400 rounded-lg font-medium cursor-not-allowed"
               >
-                Current Plan
+                {accountType === 'premium' ? 'Switch to Free' : 'Current Plan'}
               </button>
             </div>
 
@@ -210,13 +407,30 @@ const Premium = () => {
                 ))}
               </ul>
               
-              <button 
-                onClick={() => handleUpgrade(selectedPlan)}
-                className="w-full py-3 px-4 bg-gradient-to-r from-[#1db954] to-[#1ed760] text-white rounded-lg font-medium hover:from-[#1ed760] hover:to-[#1db954] transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-5 h-5" />
-                Upgrade to Premium
-              </button>
+              {accountType !== 'premium' ? (
+                <button 
+                  onClick={() => handleUpgrade(selectedPlan)}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-[#1db954] to-[#1ed760] text-white rounded-lg font-medium hover:from-[#1ed760] hover:to-[#1db954] transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Upgrade to Premium
+                </button>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  <button 
+                    className="w-full py-3 px-4 bg-zinc-700 text-white rounded-lg font-medium"
+                    disabled
+                  >
+                    You are on Premium
+                  </button>
+                  <button 
+                    onClick={handleCancelPremium}
+                    className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Cancel Premium
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -279,3 +493,4 @@ const Premium = () => {
 };
 
 export default Premium;
+

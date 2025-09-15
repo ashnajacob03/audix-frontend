@@ -343,7 +343,7 @@ const UserManagement = () => {
                     const serialNumber = (currentPage - 1) * 20 + index + 1;
                     
                     return (
-                    <tr key={user.id} className="hover:bg-zinc-700/20 transition-colors">
+                    <tr key={`${user.id}-${index}`} className="hover:bg-zinc-700/20 transition-colors">
                       <td className="px-6 py-4">
                         <input
                           type="checkbox"

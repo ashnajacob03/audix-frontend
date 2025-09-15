@@ -56,7 +56,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
                 login(data.data.user, data.data.tokens);
 
                 // Check if user is admin and redirect accordingly
-                const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
+                const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'ashnajacob003@gmail.com';
                 const isAdmin = data.data.user?.isAdmin || userInfo.email === ADMIN_EMAIL;
 
                 if (isAdmin) {
