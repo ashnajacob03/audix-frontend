@@ -218,6 +218,21 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
       setSocket(newSocket);
 
+      const onTokenRefreshed = (e: CustomEvent<{ accessToken?: string }>) => {
+        const newToken = e.detail?.accessToken || localStorage.getItem('accessToken');
+        if (!newToken) return;
+        try {
+          // Reconnect socket with new token
+          newSocket.auth = { token: newToken } as any;
+          newSocket.disconnect();
+          newSocket.connect();
+        } catch (err) {
+          console.error('Failed to reconnect socket after token refresh:', err);
+        }
+      };
+
+      window.addEventListener('tokenRefreshed', onTokenRefreshed as any);
+
       return () => {
         // Clear all timeouts
         typingTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
@@ -227,6 +242,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           clearTimeout(reconnectTimeoutRef.current);
         }
 
+        window.removeEventListener('tokenRefreshed', onTokenRefreshed as any);
         newSocket.disconnect();
         setSocket(null);
         setIsConnected(false);

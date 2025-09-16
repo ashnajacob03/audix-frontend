@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCustomAuth } from '../contexts/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { testAuthFlow, testMusicAPIs } from '../utils/authTest';
+ 
 
 const Login = () => {
   const { login } = useCustomAuth();
@@ -300,29 +300,7 @@ const Login = () => {
             </Link>
           </p>
           
-          {/* Debug Test Buttons - Remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-4 space-y-2">
-              <button
-                onClick={async () => {
-                  console.log('=== RUNNING AUTH TEST ===');
-                  await testAuthFlow();
-                }}
-                className="block w-full px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-              >
-                Test Auth Flow (Dev Only)
-              </button>
-              <button
-                onClick={async () => {
-                  console.log('=== RUNNING MUSIC API TEST ===');
-                  await testMusicAPIs();
-                }}
-                className="block w-full px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-              >
-                Test Music APIs (Dev Only)
-              </button>
-            </div>
-          )}
+          
         </div>
       </div>
 

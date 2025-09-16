@@ -442,7 +442,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         }
       }
       const recommended = Array.isArray(recs)
-        ? recs.find((s: any) => s && s._id && !existingIds.has(s._id))
+        ? (() => {
+            const candidates = recs.filter((s: any) => s && s._id && !existingIds.has(s._id));
+            if (candidates.length === 0) return null;
+            const randomIndex = Math.floor(Math.random() * candidates.length);
+            return candidates[randomIndex];
+          })()
         : null;
 
       if (recommended) {
@@ -457,13 +462,25 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       }
 
       if (Array.isArray(recs) && recs.length > 0) {
-        const fallback = recs[0];
+        const randomIndex = Math.floor(Math.random() * recs.length);
+        const fallback = recs[randomIndex];
         setQueue(prev => [...prev, fallback]);
         setCurrentIndex(prev => prev + 1);
         try {
           await playSong(fallback as any);
         } catch (err2) {
           console.error('Fallback recommended next failed:', err2);
+        }
+      }
+      // Absolute last resort: loop within current queue
+      else if (queue.length > 0) {
+        try {
+          const nextIndexInLoop = (currentIndex + 1) % queue.length;
+          const loopSong = queue[nextIndexInLoop];
+          setCurrentIndex(nextIndexInLoop);
+          await playSong(loopSong);
+        } catch (loopErr) {
+          console.error('Loop fallback failed:', loopErr);
         }
       }
     } catch (e) {

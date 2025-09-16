@@ -3,6 +3,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect, useState } from 'react';
 import api from '@/services/api';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import FallbackImage from '@/components/FallbackImage';
 import { Button } from '@/components/ui/button';
 import { Heart, Play, Pause } from 'lucide-react';
@@ -18,6 +19,7 @@ interface LikedSongItem {
 
 const LikedSongs = () => {
 	const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
+  const { isAuthenticated } = useCustomAuth();
 	const [songs, setSongs] = useState<LikedSongItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,17 @@ const LikedSongs = () => {
 		setLoading(true);
 		setError(null);
 		try {
+			if (!api.isAuthenticated() || !isAuthenticated) {
+				setError('Please log in to view your liked songs.');
+				setSongs([]);
+				return;
+			}
 			const data = await api.getLikedSongs({ suppressAuthRedirect: true } as any);
+			if (data && (data as any).error) {
+				setError('Authentication required. Please log in again.');
+				setSongs([]);
+				return;
+			}
 			setSongs(Array.isArray(data) ? data : []);
 		} catch (e: any) {
 			setError(e?.message || 'Failed to load liked songs');

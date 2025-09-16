@@ -37,7 +37,7 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    const token = localStorage.getItem('accessToken');
+    let token = localStorage.getItem('accessToken');
 
     // Debug logging
     if (endpoint.includes('/music/')) {
@@ -67,6 +67,7 @@ class ApiService {
       config.body = JSON.stringify(config.body);
     }
 
+    let refreshedOnce = false;
     for (let attempt = 0; attempt <= max429Retries; attempt++) {
       try {
         const response = await fetch(url, config);
@@ -80,13 +81,57 @@ class ApiService {
         if (!response.ok) {
           console.log(`API request failed with status ${response.status} for ${endpoint}`);
           
-          // Handle token expiration
+          // Handle token expiration: try one refresh then retry original request once
           if (response.status === 401) {
-            console.log('401 Unauthorized - token refresh disabled for testing');
-            const refreshToken = localStorage.getItem('refreshToken');
-            console.log('Refresh token available:', !!refreshToken);
-            
-            // Token refresh disabled for testing - just redirect to login
+            const storedRefresh = localStorage.getItem('refreshToken');
+            if (storedRefresh && !refreshedOnce) {
+              try {
+                const refreshData = await this.refreshToken(storedRefresh);
+                const newAccess = refreshData?.data?.tokens?.accessToken || refreshData?.accessToken;
+                const newRefresh = refreshData?.data?.tokens?.refreshToken || refreshData?.refreshToken;
+                if (newAccess) localStorage.setItem('accessToken', newAccess);
+                if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+                // Notify app that tokens were refreshed
+                try {
+                  window.dispatchEvent(new CustomEvent('tokenRefreshed', { detail: { accessToken: newAccess, refreshToken: newRefresh } }));
+                } catch {}
+                // Update Authorization header and retry once
+                token = newAccess || token;
+                config = {
+                  ...config,
+                  headers: {
+                    ...config.headers,
+                    ...(token && { Authorization: `Bearer ${token}` })
+                  }
+                };
+                refreshedOnce = true;
+                // retry immediately without increasing attempt counter
+                const retryResp = await fetch(url, config);
+                let retryData;
+                try { retryData = await retryResp.json(); } catch { retryData = undefined; }
+                if (!retryResp.ok) {
+                  // Refresh succeeded but retry failed: fall through to redirect/return error
+                  if (retryResp.status === 401 && !options.suppressAuthRedirect) {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    localStorage.removeItem('user');
+                    window.dispatchEvent(new CustomEvent('authTokenExpired'));
+                  }
+                  throw new Error((retryData && retryData.message) || 'API request failed after refresh');
+                }
+                return retryData;
+              } catch (refreshErr) {
+                console.error('Token refresh failed:', refreshErr);
+                if (!options.suppressAuthRedirect) {
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('refreshToken');
+                  localStorage.removeItem('user');
+                  window.dispatchEvent(new CustomEvent('authTokenExpired'));
+                }
+                return { error: 'Authentication failed' };
+              }
+            }
+            // No refresh token or already refreshed
             if (!options.suppressAuthRedirect) {
               localStorage.removeItem('accessToken');
               localStorage.removeItem('refreshToken');
