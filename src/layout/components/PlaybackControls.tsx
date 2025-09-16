@@ -111,14 +111,21 @@ export const PlaybackControls = () => {
     if (isLoadingPlaylists) return;
     setIsLoadingPlaylists(true);
     try {
+      console.log('Loading playlists...');
       const data = await api.getPlaylists({ suppressAuthRedirect: true } as any);
+      console.log('Fetched playlists response:', data);
+      
       // Check if the response is an error object
       if (data && data.error) {
+        console.log('Error loading playlists:', data.error);
         setPlaylists([]);
       } else {
-        setPlaylists(Array.isArray(data) ? data : []);
+        const playlistsArray = Array.isArray(data) ? data : [];
+        console.log('Successfully loaded', playlistsArray.length, 'playlists');
+        setPlaylists(playlistsArray);
       }
     } catch (e) {
+      console.error('Failed to load playlists:', e);
       setPlaylists([]);
     } finally {
       setIsLoadingPlaylists(false);
@@ -141,17 +148,25 @@ export const PlaybackControls = () => {
     setAddBusyId(playlistId);
     try {
       const result = await api.addSongToPlaylist(playlistId, currentSong._id, { suppressAuthRedirect: true } as any);
+      console.log('Add to playlist result:', result);
+      
       // Check if the response is an error object
       if (result && result.error) {
         console.log('Authentication failed, cannot add song to playlist');
+        alert('Authentication failed. Please try logging in again.');
         // Don't close the modal, let user try again
+      } else if (result && result.message === 'Song already in playlist') {
+        console.log('Song already in playlist');
+        alert('This song is already in the playlist.');
+        setIsPlaylistModalOpen(false);
       } else {
         console.log('Successfully added song to playlist');
+        alert('Song added to playlist successfully!');
         setIsPlaylistModalOpen(false);
       }
     } catch (e) {
       console.error('Failed to add song to playlist:', e);
-      // optionally notify
+      alert('Failed to add song to playlist. Please try again.');
     } finally {
       setAddBusyId(null);
     }
@@ -167,15 +182,32 @@ export const PlaybackControls = () => {
     setCreatingPlaylist(true);
     try {
       const payload = { name: newPlaylistName.trim(), title: newPlaylistName.trim() } as any;
+      console.log('Creating playlist with payload:', payload);
       const created = await api.createPlaylist(payload, { suppressAuthRedirect: true } as any);
+      console.log('Created playlist result:', created);
+      
+      if (created && created.error) {
+        alert('Failed to create playlist. Please try again.');
+        return;
+      }
+      
       await ensurePlaylistsLoaded();
       if (created && created._id && currentSong) {
-        await api.addSongToPlaylist(created._id, currentSong._id, { suppressAuthRedirect: true } as any);
+        console.log('Adding song to newly created playlist:', created._id);
+        const addResult = await api.addSongToPlaylist(created._id, currentSong._id, { suppressAuthRedirect: true } as any);
+        console.log('Add to new playlist result:', addResult);
+        
+        if (addResult && addResult.error) {
+          alert('Playlist created but failed to add song. Please try adding it manually.');
+        } else {
+          alert('Playlist created and song added successfully!');
+        }
       }
       setIsPlaylistModalOpen(false);
       setNewPlaylistName("");
     } catch (e) {
-      // optionally notify
+      console.error('Failed to create playlist:', e);
+      alert('Failed to create playlist. Please try again.');
     } finally {
       setCreatingPlaylist(false);
     }

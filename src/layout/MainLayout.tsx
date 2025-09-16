@@ -5,10 +5,11 @@ import FriendsActivity from "./components/FriendsActivity";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { useEffect, useState } from "react";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import AdOverlay from "@/components/AdOverlay";
 
 const MainLayout = () => {
 	const [isMobile, setIsMobile] = useState(false);
-	const { currentSong } = useAudioPlayer();
+	const { currentSong, isAdPlaying } = useAudioPlayer();
 
 	useEffect(() => {
 		const checkMobile = () => {
@@ -53,6 +54,7 @@ const MainLayout = () => {
 					<PlaybackControls />
 				</div>
 			)}
+			{isAdPlaying && <AdOverlay seconds={10} />}
 		</div>
 	);
 };

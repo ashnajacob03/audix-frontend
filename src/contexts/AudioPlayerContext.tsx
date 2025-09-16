@@ -18,6 +18,7 @@ interface Song {
 interface AudioPlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
+  isAdPlaying: boolean;
   currentTime: number;
   duration: number;
   volume: number;
@@ -40,6 +41,7 @@ interface AudioPlayerContextType {
   removeFromQueue: (index: number) => void;
   clearQueue: () => void;
   shuffle: () => void;
+  dismissAd: () => void;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
@@ -57,10 +59,21 @@ interface AudioPlayerProviderProps {
 }
 
 export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ children }) => {
-  const { isAuthenticated } = useCustomAuth();
+  const { isAuthenticated, user } = useCustomAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playRequestIdRef = useRef<number>(0);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAdPlaying, setIsAdPlaying] = useState(false);
+  const [pendingSongAfterAd, setPendingSongAfterAd] = useState<Song | null>(null);
+  const [adAudioDone, setAdAudioDone] = useState(false);
+  const [adTimerDone, setAdTimerDone] = useState(false);
+  const adTimerRef = useRef<number | null>(null);
+  // Refs to avoid stale closures in timers/handlers
+  const isAdPlayingRef = useRef<boolean>(false);
+  const pendingSongAfterAdRef = useRef<Song | null>(null);
+  const adAudioDoneRef = useRef<boolean>(false);
+  const adTimerDoneRef = useRef<boolean>(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -87,6 +100,34 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     };
 
     const handleEnded = () => {
+      // If an ad just finished, immediately play the originally selected song
+      if (isAdPlayingRef.current) {
+        setAdAudioDone(true);
+        adAudioDoneRef.current = true;
+        if (pendingSongAfterAdRef.current) {
+          const songToPlay = pendingSongAfterAdRef.current;
+          setIsAdPlaying(false);
+          setPendingSongAfterAd(null);
+          setAdAudioDone(false);
+          setAdTimerDone(false);
+          isAdPlayingRef.current = false;
+          pendingSongAfterAdRef.current = null;
+          adAudioDoneRef.current = false;
+          adTimerDoneRef.current = false;
+          if (audioRef.current) {
+            try { audioRef.current.pause(); } catch {}
+          }
+          if (adTimerRef.current) {
+            clearTimeout(adTimerRef.current);
+            adTimerRef.current = null;
+          }
+          playSongCore(songToPlay).catch(err => {
+            console.error('Failed to start song after ad:', err);
+            next();
+          });
+        }
+        return;
+      }
       // Always attempt to go to the next song; if we're at the end,
       // the next() handler will fetch a recommendation.
       next();
@@ -110,15 +151,74 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     };
   }, [currentIndex, queue.length]);
 
-  // Play a single song
-  const playSong = useCallback(async (song: Song) => {
-    if (!audioRef.current) return;
+  // Keep refs in sync with state
+  useEffect(() => { isAdPlayingRef.current = isAdPlaying; }, [isAdPlaying]);
+  useEffect(() => { pendingSongAfterAdRef.current = pendingSongAfterAd; }, [pendingSongAfterAd]);
+  useEffect(() => { adAudioDoneRef.current = adAudioDone; }, [adAudioDone]);
+  useEffect(() => { adTimerDoneRef.current = adTimerDone; }, [adTimerDone]);
 
+  // Internal helper to attempt to play a list of URLs on the shared audio element
+  const attemptPlayUrls = useCallback(async (urls: string[]) => {
+    if (!audioRef.current) return;
+    const myRequestId = ++playRequestIdRef.current;
+    let played = false;
+    let lastError: unknown = null;
+    for (const url of urls) {
+      if (myRequestId !== playRequestIdRef.current) return;
+      try {
+        const audio = audioRef.current;
+        audio.pause();
+        audio.src = '';
+        audio.load();
+        audio.src = url;
+        audio.volume = volume;
+        audio.currentTime = 0;
+        try {
+          if (myRequestId !== playRequestIdRef.current) return;
+          await audio.play();
+        } catch (immediateErr: any) {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              cleanup();
+              resolve();
+            }, 1200);
+            const onCanPlay = () => {
+              cleanup();
+              resolve();
+            };
+            const onError = (e: Event) => {
+              cleanup();
+              reject(e);
+            };
+            function cleanup() {
+              clearTimeout(timeout);
+              audio.removeEventListener('canplay', onCanPlay);
+              audio.removeEventListener('error', onError);
+            }
+            audio.addEventListener('canplay', onCanPlay, { once: true });
+            audio.addEventListener('error', onError, { once: true });
+            audio.load();
+          });
+          if (myRequestId !== playRequestIdRef.current) return;
+          await audio.play();
+        }
+        played = true;
+        break;
+      } catch (err) {
+        lastError = err;
+        continue;
+      }
+    }
+    if (!played) {
+      throw lastError || new Error('Failed to play from all candidate URLs');
+    }
+  }, [volume]);
+
+  // Core song playback without ad logic
+  const playSongCore = useCallback(async (song: Song) => {
+    if (!audioRef.current) return;
     try {
-      // Prefer a direct audio URL if provided by the API
-      // Then try a provided streamUrl, then our backend stream endpoint, then previewUrl
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
-      // Prioritize backend proxy stream first as it handles CORS and fallbacks
       const candidateUrls = [
         `${apiBase}/music/songs/${song._id}/stream`,
         song.audioUrl,
@@ -130,33 +230,14 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         throw new Error('No available audio source URLs for this song');
       }
 
-      let played = false;
-      let lastError: unknown = null;
-      for (const url of candidateUrls) {
-        try {
-          // Reset src before setting a new one to avoid readyState glitches
-          audioRef.current.src = '';
-          audioRef.current.src = url;
-          audioRef.current.volume = volume;
-          audioRef.current.currentTime = 0;
-          // Some browsers reject play() promise if not ready; calling play() directly is fine after user gesture
-          await audioRef.current.play();
-          played = true;
-          break;
-        } catch (err) {
-          lastError = err;
-          // Try next candidate
-          continue;
-        }
-      }
+      // Optimistically reflect selection in UI
+      setCurrentSong(song);
+      setIsPlaying(false);
+      setCurrentTime(0);
 
-      if (!played) {
-        throw lastError || new Error('Failed to play from all candidate URLs');
-      }
+      await attemptPlayUrls(candidateUrls);
 
       setCurrentSong(song);
-      // Keep queue intact. If the song exists in the queue, move index to it.
-      // If it doesn't, append it and move index to the end.
       setQueue(prev => {
         const idx = prev.findIndex(s => s._id === song._id);
         if (idx !== -1) {
@@ -167,14 +248,103 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         setCurrentIndex(nextQueue.length - 1);
         return nextQueue;
       });
-      setCurrentTime(0);
       setIsPlaying(true);
-    } catch (error) {
+    } catch (error: any) {
+      if (error && (error.name === 'AbortError')) return;
       console.error('Failed to play song:', error);
-      // Fallback: try to play with a different approach or show error
       setIsPlaying(false);
     }
-  }, [volume]);
+  }, [attemptPlayUrls]);
+
+  // Play a single song (with pre-roll ad for free users)
+  const playSong = useCallback(async (song: Song) => {
+    if (!audioRef.current) return;
+    const isPremium = !!user && (user.accountType === 'premium');
+    const shouldPlayAd = !isPremium; // treat unauthenticated or non-premium as ad-supported
+
+    if (shouldPlayAd) {
+      try {
+        const adUrlEnv = (import.meta as any).env?.VITE_AD_AUDIO_URL as string | undefined;
+        const adUrlFallback = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        const adUrl = adUrlEnv || adUrlFallback;
+
+        // Reset ad state and start 10s timer for the overlay
+        if (adTimerRef.current) {
+          clearTimeout(adTimerRef.current);
+          adTimerRef.current = null;
+        }
+        setAdAudioDone(false);
+        setAdTimerDone(false);
+        setIsAdPlaying(true);
+        setPendingSongAfterAd(song);
+        setIsPlaying(false);
+        setCurrentTime(0);
+        adTimerRef.current = window.setTimeout(() => {
+          setAdTimerDone(true);
+          adTimerDoneRef.current = true;
+          // After 10s, ALWAYS dismiss overlay. If a song is pending, start it.
+          const songToPlayNow = pendingSongAfterAdRef.current || null;
+          setIsAdPlaying(false);
+          setPendingSongAfterAd(null);
+          setAdAudioDone(false);
+          setAdTimerDone(false);
+          isAdPlayingRef.current = false;
+          pendingSongAfterAdRef.current = null;
+          adAudioDoneRef.current = false;
+          adTimerDoneRef.current = false;
+          if (audioRef.current) {
+            try { audioRef.current.pause(); } catch {}
+          }
+          if (adTimerRef.current) {
+            clearTimeout(adTimerRef.current);
+            adTimerRef.current = null;
+          }
+          if (songToPlayNow) {
+            playSongCore(songToPlayNow).catch(err => {
+              console.error('Failed to start song after ad timer:', err);
+              next();
+            });
+          }
+        }, 10000);
+        // Start playing the ad; when it ends, handleEnded will trigger song playback
+        await attemptPlayUrls([adUrl]);
+        return;
+      } catch (e) {
+        console.warn('Ad failed to play, proceeding to song directly:', e);
+        // Keep overlay for the remainder of 10s even if audio failed
+        setAdAudioDone(true);
+        adAudioDoneRef.current = true;
+        if (!adTimerRef.current) {
+          adTimerRef.current = window.setTimeout(() => {
+            setAdTimerDone(true);
+            adTimerDoneRef.current = true;
+            if (isAdPlayingRef.current && pendingSongAfterAdRef.current) {
+              const songToPlayNow = pendingSongAfterAdRef.current;
+              setIsAdPlaying(false);
+              setPendingSongAfterAd(null);
+              setAdAudioDone(false);
+              setAdTimerDone(false);
+              isAdPlayingRef.current = false;
+              pendingSongAfterAdRef.current = null;
+              adAudioDoneRef.current = false;
+              adTimerDoneRef.current = false;
+              if (adTimerRef.current) {
+                clearTimeout(adTimerRef.current);
+                adTimerRef.current = null;
+              }
+              playSongCore(songToPlayNow).catch(err => {
+                console.error('Failed to start song after failed ad:', err);
+                next();
+              });
+            }
+          }, 10000);
+        }
+        return;
+      }
+    }
+
+    await playSongCore(song);
+  }, [user, attemptPlayUrls, playSongCore]);
 
   // Play a queue of songs
   const playQueue = useCallback(async (songs: Song[], startIndex = 0) => {
@@ -241,17 +411,17 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         try {
           recs = await api.getRecommendations(10, { suppressAuthRedirect: true });
         } catch (apiError) {
-          console.log('Recommendations API failed, trying popular songs:', apiError.message);
+          console.log('Recommendations API failed, trying popular songs:', (apiError as any)?.message || apiError);
           // Fallback to popular songs if recommendations fail
           try {
             recs = await api.getPopularSongs(10, undefined, { suppressAuthRedirect: true });
           } catch (popularError) {
-            console.log('Popular songs API failed, trying random songs:', popularError.message);
+            console.log('Popular songs API failed, trying random songs:', (popularError as any)?.message || popularError);
             // Final fallback to random songs
             try {
               recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
             } catch (songsError) {
-              console.log('Random songs API failed:', songsError.message);
+              console.log('Random songs API failed:', (songsError as any)?.message || songsError);
               recs = [];
             }
           }
@@ -261,12 +431,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         try {
           recs = await api.getPopularSongs(10, { suppressAuthRedirect: true });
         } catch (popularError) {
-          console.log('Popular songs API failed for unauthenticated user, trying random songs:', popularError.message);
+          console.log('Popular songs API failed for unauthenticated user, trying random songs:', (popularError as any)?.message || popularError);
           // Fallback to random songs
           try {
             recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
           } catch (songsError) {
-            console.log('Random songs API failed:', songsError.message);
+            console.log('Random songs API failed:', (songsError as any)?.message || songsError);
             recs = [];
           }
         }
@@ -326,17 +496,17 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         try {
           recs = await api.getRecommendations(10, { suppressAuthRedirect: true });
         } catch (apiError) {
-          console.log('Recommendations API failed, trying popular songs:', apiError.message);
+          console.log('Recommendations API failed, trying popular songs:', (apiError as any)?.message || apiError);
           // Fallback to popular songs if recommendations fail
           try {
             recs = await api.getPopularSongs(10, undefined, { suppressAuthRedirect: true });
           } catch (popularError) {
-            console.log('Popular songs API failed, trying random songs:', popularError.message);
+            console.log('Popular songs API failed, trying random songs:', (popularError as any)?.message || popularError);
             // Final fallback to random songs
             try {
               recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
             } catch (songsError) {
-              console.log('Random songs API failed:', songsError.message);
+              console.log('Random songs API failed:', (songsError as any)?.message || songsError);
               recs = [];
             }
           }
@@ -346,12 +516,12 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         try {
           recs = await api.getPopularSongs(10, { suppressAuthRedirect: true });
         } catch (popularError) {
-          console.log('Popular songs API failed for unauthenticated user, trying random songs:', popularError.message);
+          console.log('Popular songs API failed for unauthenticated user, trying random songs:', (popularError as any)?.message || popularError);
           // Fallback to random songs
           try {
             recs = await api.getSongs({ limit: 10 }, { suppressAuthRedirect: true });
           } catch (songsError) {
-            console.log('Random songs API failed:', songsError.message);
+            console.log('Random songs API failed:', (songsError as any)?.message || songsError);
             recs = [];
           }
         }
@@ -433,9 +603,26 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     });
   }, []);
 
+  // Allow UI to immediately stop ad and hide overlay (e.g., Upgrade click)
+  const dismissAd = useCallback(() => {
+    if (adTimerRef.current) {
+      clearTimeout(adTimerRef.current);
+      adTimerRef.current = null;
+    }
+    setIsAdPlaying(false);
+    setPendingSongAfterAd(null);
+    setAdAudioDone(false);
+    setAdTimerDone(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setIsPlaying(false);
+  }, []);
+
   const value: AudioPlayerContextType = {
     currentSong,
     isPlaying,
+    isAdPlaying,
     currentTime,
     duration,
     volume,
@@ -454,6 +641,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     removeFromQueue,
     clearQueue,
     shuffle,
+    dismissAd,
   };
 
   return (

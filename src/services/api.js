@@ -82,61 +82,18 @@ class ApiService {
           
           // Handle token expiration
           if (response.status === 401) {
-            console.log('401 Unauthorized - attempting token refresh');
+            console.log('401 Unauthorized - token refresh disabled for testing');
             const refreshToken = localStorage.getItem('refreshToken');
             console.log('Refresh token available:', !!refreshToken);
             
-            if (refreshToken) {
-              try {
-                const refreshResponse = await this.refreshToken(refreshToken);
-                const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data.tokens;
-
-                localStorage.setItem('accessToken', accessToken);
-                localStorage.setItem('refreshToken', newRefreshToken);
-
-                // Retry original request with new token (do not advance 429 attempt counter)
-                config.headers = {
-                  ...config.headers,
-                  Authorization: `Bearer ${accessToken}`,
-                };
-                const retryResponse = await fetch(url, config);
-                const retryData = await retryResponse.json();
-
-                if (!retryResponse.ok) {
-                  // If still not ok after refresh, throw
-                  throw new Error(retryData?.message || 'API request failed');
-                }
-
-                return retryData;
-              } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError);
-                // Refresh failed: optionally suppress redirect for passive UI use-cases
-                if (!options.suppressAuthRedirect) {
-                  localStorage.removeItem('accessToken');
-                  localStorage.removeItem('refreshToken');
-                  localStorage.removeItem('user');
-                  window.dispatchEvent(new CustomEvent('authTokenExpired'));
-                }
-                // If suppressAuthRedirect is true, don't retry the request
-                if (options.suppressAuthRedirect) {
-                  return { error: 'Authentication failed' };
-                }
-                throw new Error('Session expired. Please log in again.');
-              }
-            } else {
-              // No refresh token: optionally suppress redirect
-              if (!options.suppressAuthRedirect) {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                localStorage.removeItem('user');
-                window.dispatchEvent(new CustomEvent('authTokenExpired'));
-              }
-              // If suppressAuthRedirect is true, don't retry the request
-              if (options.suppressAuthRedirect) {
-                return { error: 'Authentication failed' };
-              }
-              throw new Error('Session expired. Please log in again.');
+            // Token refresh disabled for testing - just redirect to login
+            if (!options.suppressAuthRedirect) {
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              window.dispatchEvent(new CustomEvent('authTokenExpired'));
             }
+            return { error: 'Authentication failed' };
           }
 
           // Handle rate limiting with backoff
