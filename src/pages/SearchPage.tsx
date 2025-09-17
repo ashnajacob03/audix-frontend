@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import AudixTopbar from "@/components/AudixTopbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import SongCard from "@/components/SongCard";
@@ -29,6 +30,8 @@ const SearchPage = () => {
   const [searchResults, setSearchResults] = useState<SearchResults>({});
   const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const location = useLocation();
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -36,6 +39,24 @@ const SearchPage = () => {
     if (saved) {
       setRecentSearches(JSON.parse(saved));
     }
+  }, []);
+
+  // Focus on search input when component mounts or when navigating to search page
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [location.pathname]); // Focus whenever the pathname changes (including repeated navigation to /search)
+
+  // Focus when topbar search is clicked again on the search page
+  useEffect(() => {
+    const handler = () => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    };
+    window.addEventListener('focus-search', handler as EventListener);
+    return () => window.removeEventListener('focus-search', handler as EventListener);
   }, []);
 
   // Save recent searches to localStorage
@@ -119,6 +140,7 @@ const SearchPage = () => {
             <form onSubmit={handleSearchSubmit} className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-400 h-5 w-5" />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="What do you want to listen to?"
                 value={searchQuery}

@@ -21,9 +21,12 @@ import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
 import NotFound from './pages/NotFound';
+import Artists from './pages/Artists';
+import ArtistDashboard from './pages/ArtistDashboard';
 
 import MainLayout from './layout/MainLayout';
 import AdminLayout from './layout/AdminLayout';
+import ArtistLayout from './layout/ArtistLayout';
 import AdminRedirectRoute from './components/AdminRedirectRoute';
 import { Toaster } from 'react-hot-toast';
 
@@ -110,6 +113,7 @@ function App() {
             </AdminRedirectRoute>
           } />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/artists" element={<Artists />} />
           <Route path="/premium" element={<Premium />} />
           <Route path="/cancel-premium" element={
             <ProtectedRoute>
@@ -183,6 +187,18 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        {/* Artist routes with dedicated layout */}
+        <Route element={<ArtistLayout />}>
+          <Route
+            path="/artist"
+            element={
+              <ProtectedRoute>
+                <ArtistDashboard />
               </ProtectedRoute>
             }
           />

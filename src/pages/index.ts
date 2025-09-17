@@ -7,3 +7,4 @@ export { default as Premium } from "./Premium";
 export { default as Messages } from "./Messages";
 export { default as AdminDashboard } from "./AdminDashboard";
 export { default as Settings } from "./Settings";
+export { default as ArtistDashboard } from "./ArtistDashboard";

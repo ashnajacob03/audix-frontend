@@ -3,7 +3,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search } from "lucide-react";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";
@@ -124,6 +124,19 @@ const LeftSidebar = () => {
 							>
 								<BarChart2 className='mr-2 size-5' />
 								<span className='hidden md:inline'>Activity</span>
+							</Link>
+
+							<Link
+								to={"/artists"}
+								className={cn(
+									buttonVariants({
+										variant: "ghost",
+										className: "w-full justify-start text-white hover:bg-zinc-800",
+									})
+								)}
+							>
+								<Users className='mr-2 size-5' />
+								<span className='hidden md:inline'>Artists</span>
 							</Link>
 
 							<Link

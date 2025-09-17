@@ -33,7 +33,9 @@ const MainLayout = () => {
 
 				{/* Main content */}
 				<ResizablePanel defaultSize={isMobile ? 80 : 60}>
-					<Outlet />
+					<div className="h-full overflow-auto">
+						<Outlet />
+					</div>
 				</ResizablePanel>
 
 				{!isMobile && (

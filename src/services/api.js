@@ -370,6 +370,16 @@ class ApiService {
     });
   }
 
+  // ===== ARTISTS =====
+  async getArtists(params = {}) {
+    return this.get('/music/artists', { params });
+  }
+
+  async followArtist(name, options = {}) {
+    const qs = this.buildQueryString({ name });
+    return this.post(`/user/follow-artist${qs}`, { name }, options);
+  }
+
   // ===== PLAYLIST API METHODS =====
 
   // Get user's playlists

@@ -1,6 +1,6 @@
 
 import { Crown, Search, User, BarChart3, Heart, Music, ChevronDown, LogOut, Settings, XCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
@@ -29,6 +29,8 @@ const AudixTopbar = () => {
   const { logout } = useLogout();
   const { isAuthenticated, user: customUser, logout: customLogout } = useCustomAuth();
   const isPremium = (customUser?.accountType === 'premium') || (userProfile as any)?.accountType === 'premium';
+  const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <div
@@ -44,6 +46,16 @@ const AudixTopbar = () => {
         {/* Search Button */}
         <Link
           to="/search"
+          onClick={(e) => {
+            if (location.pathname === "/search") {
+              e.preventDefault();
+              window.dispatchEvent(new CustomEvent("focus-search"));
+            } else {
+              // Ensure navigation if not already on /search
+              e.preventDefault();
+              navigate("/search");
+            }
+          }}
           className={cn(
             buttonVariants({ variant: "ghost", size: "default" }),
             "rounded-md flex items-center gap-2 bg-zinc-800/40 hover:bg-zinc-700/40 text-zinc-300 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-all"
