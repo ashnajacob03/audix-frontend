@@ -22,6 +22,7 @@ import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
 import NotFound from './pages/NotFound';
 import Artists from './pages/Artists';
+import ArtistProfile from './pages/ArtistProfile';
 import ArtistDashboard from './pages/ArtistDashboard';
 
 import MainLayout from './layout/MainLayout';
@@ -114,6 +115,7 @@ function App() {
           } />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/artists" element={<Artists />} />
+          <Route path="/artist/:name" element={<ArtistProfile />} />
           <Route path="/premium" element={<Premium />} />
           <Route path="/cancel-premium" element={
             <ProtectedRoute>

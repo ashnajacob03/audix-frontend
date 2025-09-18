@@ -60,17 +60,34 @@ const ArtistsPage: React.FC = () => {
   const toggleFollow = async (name: string) => {
     if (!isAuthenticated || busyName) return;
     setBusyName(name);
-    // Optimistic UI update
-    setArtists(prev => prev.map(a => a.name === name ? { ...a, isFollowing: true, followerCount: (a.followerCount || 0) + 1 } : a));
+    // Determine current state
+    let wasFollowing = false;
+    setArtists(prev => prev.map(a => {
+      if (a.name !== name) return a;
+      wasFollowing = !!a.isFollowing;
+      const nextFollowing = !wasFollowing;
+      const nextCount = Math.max(0, (a.followerCount || 0) + (nextFollowing ? 1 : -1));
+      return { ...a, isFollowing: nextFollowing, followerCount: nextCount };
+    }));
     try {
       const resp = await apiService.followArtist(name, { suppressAuthRedirect: true } as any);
-      // Use server response if provided
       if (resp && typeof resp.isFollowing === 'boolean') {
-        setArtists(prev => prev.map(a => a.name === name ? { ...a, isFollowing: resp.isFollowing, followerCount: Math.max(0, (a.followerCount || 0) + (resp.isFollowing ? 0 : 0)) } : a));
+        const finalFollowing = resp.isFollowing;
+        setArtists(prev => prev.map(a => {
+          if (a.name !== name) return a;
+          const baseCount = a.followerCount || 0;
+          // Adjust count if server result differs from optimistic state
+          const correctedCount = baseCount + (finalFollowing ? (wasFollowing ? 0 : 0) : (wasFollowing ? 0 : 0));
+          return { ...a, isFollowing: finalFollowing, followerCount: Math.max(0, correctedCount) };
+        }));
       }
     } catch (e) {
       // Revert on error
-      setArtists(prev => prev.map(a => a.name === name ? { ...a, isFollowing: false, followerCount: Math.max(0, (a.followerCount || 1) - 1) } : a));
+      setArtists(prev => prev.map(a => {
+        if (a.name !== name) return a;
+        const revertedCount = Math.max(0, (a.followerCount || 0) + (wasFollowing ? 1 : -1));
+        return { ...a, isFollowing: wasFollowing, followerCount: revertedCount };
+      }));
     } finally {
       setBusyName(null);
     }
@@ -115,9 +132,17 @@ const ArtistsPage: React.FC = () => {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
           {artists.map((artist) => (
-            <div
+            <a
               key={artist.name}
+              href={`/artist/${encodeURIComponent(artist.name)}`}
               className="rounded-xl p-4 flex flex-col items-center text-center bg-gradient-to-b from-zinc-900/80 to-black/60 border border-white/5 hover:border-white/10 transition-colors shadow-sm hover:shadow-md"
+              onClick={(e) => {
+                // Allow button clicks inside the card to not trigger navigation
+                const target = e.target as HTMLElement;
+                if (target.closest('button')) {
+                  e.preventDefault();
+                }
+              }}
             >
               <div className="w-28 h-28 md:w-32 md:h-32 rounded-full overflow-hidden mb-3 ring-1 ring-white/10">
                 <FallbackImage
@@ -136,11 +161,16 @@ const ArtistsPage: React.FC = () => {
                   <Check className="h-4 w-4 mr-1.5" /> Following
                 </Button>
               ) : (
-                <Button onClick={() => toggleFollow(artist.name)} disabled={busyName === artist.name} className="w-full" variant="secondary">
+                <Button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(artist.name); }}
+                  disabled={busyName === artist.name}
+                  className="w-full"
+                  variant="secondary"
+                >
                   Follow
                 </Button>
               )}
-            </div>
+            </a>
           ))}
         </div>
       )}

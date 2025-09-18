@@ -380,6 +380,11 @@ class ApiService {
     return this.post(`/user/follow-artist${qs}`, { name }, options);
   }
 
+  async getArtistProfile(name) {
+    const encoded = encodeURIComponent(name);
+    return this.get(`/music/artist/${encoded}`);
+  }
+
   // ===== PLAYLIST API METHODS =====
 
   // Get user's playlists
