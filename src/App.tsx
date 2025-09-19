@@ -17,6 +17,7 @@ import Messages from './pages/Messages';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import SettingsMenu from './pages/SettingsMenu';
 import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
@@ -144,6 +145,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings-menu"
+            element={
+              <ProtectedRoute>
+                <SettingsMenu />
               </ProtectedRoute>
             }
           />

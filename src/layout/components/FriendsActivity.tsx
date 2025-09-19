@@ -1,6 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as ClockIcon } from "lucide-react";
+import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as ClockIcon, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
@@ -24,7 +24,7 @@ interface User {
   friendStatus: 'none' | 'friends' | 'request_sent' | 'request_received';
 }
 
-const FriendsActivity = () => {
+const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 	const { isAuthenticated, user: currentUser } = useCustomAuth();
 	const navigate = useNavigate();
 	const [users, setUsers] = useState<User[]>([]);
@@ -369,14 +369,23 @@ const FriendsActivity = () => {
 		);
 	}
 
-	return (
-		<div className='h-full rounded-lg bg-zinc-900 p-4 flex flex-col'>
-			<div className='flex items-center justify-between mb-4'>
+    return (
+        <div className='h-full rounded-lg bg-zinc-900 p-4 flex flex-col'>
+            <div className='flex items-center justify-between mb-4'>
 				<div className='flex items-center gap-2'>
 					<Users className='size-5 text-white' />
 					<h2 className='text-white font-semibold'>Discover People</h2>
 				</div>
-				<span className='text-xs text-zinc-400'>{users.filter(user => user.email !== ADMIN_EMAIL).length} users</span>
+                <div className='flex items-center gap-2'>
+                    <span className='text-xs text-zinc-400'>{users.filter(user => user.email !== ADMIN_EMAIL).length} users</span>
+                    <button
+                        onClick={onCollapse}
+                        className='p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300'
+                        aria-label='Collapse sidebar'
+                    >
+                        <ChevronRight className='size-4' />
+                    </button>
+                </div>
 			</div>
 
 			<ScrollArea className='flex-1'>

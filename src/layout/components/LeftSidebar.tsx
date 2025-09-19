@@ -3,7 +3,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users } from "lucide-react";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";
@@ -17,7 +17,7 @@ type SongItem = {
 	imageUrl?: string;
 };
 
-const LeftSidebar = () => {
+const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 	const { isAuthenticated } = useCustomAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [recentSongs, setRecentSongs] = useState<SongItem[]>([]);
@@ -70,8 +70,20 @@ const LeftSidebar = () => {
 	return (
 		<div className='h-full flex flex-col gap-2 overflow-hidden'>
 			{/* Navigation menu */}
-			<div className='rounded-lg bg-zinc-900 p-4'>
+            <div className='rounded-lg bg-zinc-900 p-4'>
 				<div className='space-y-2'>
+					<button
+						onClick={onCollapse}
+						className={cn(
+							buttonVariants({
+								variant: "ghost",
+								className: "w-full justify-start text-white hover:bg-zinc-800",
+							})
+						)}
+						aria-label='Collapse sidebar'
+					>
+						<ChevronLeft className='mr-2 size-5' />
+					</button>
 					<Link
 						to={"/"}
 						className={cn(
@@ -151,6 +163,19 @@ const LeftSidebar = () => {
 								<MessageCircle className='mr-2 size-5' />
 								<span className='hidden md:inline'>Messages</span>
 							</Link>
+
+					<Link
+						to={"/settings-menu"}
+						className={cn(
+							buttonVariants({
+								variant: "ghost",
+								className: "w-full justify-start text-white hover:bg-zinc-800",
+							})
+						)}
+					>
+						<Settings className='mr-2 size-5' />
+						<span className='hidden md:inline'>Settings</span>
+					</Link>
 						</>
 					)}
 				</div>

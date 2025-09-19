@@ -156,11 +156,7 @@ const ArtistsPage: React.FC = () => {
               <div className="text-sm text-zinc-400 mb-3" title={`${artist.songCount} songs • ${artist.followerCount || 0} followers`}>
                 {artist.songCount} songs • {formatCount(artist.followerCount)} followers
               </div>
-              {artist.isFollowing ? (
-                <Button disabled className="w-full" variant="secondary">
-                  <Check className="h-4 w-4 mr-1.5" /> Following
-                </Button>
-              ) : (
+              {artist.isFollowing ? null : (
                 <Button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(artist.name); }}
                   disabled={busyName === artist.name}

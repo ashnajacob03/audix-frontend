@@ -17,12 +17,15 @@ import {
   Upload,
   Trash2,
   AlertCircle,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  ChevronLeft
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiService from '@/services/api';
+import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { user, updateUser } = useCustomAuth();
   const { userProfile, isLoading, refetch } = useUserProfile();
   const accountType = (user as any)?.accountType || (userProfile as any)?.accountType || 'free';
@@ -345,11 +348,17 @@ const Settings = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <button
+                  onClick={() => navigate('/settings-menu')}
+                  className="p-2 rounded-lg hover:bg-zinc-700/60 transition-colors text-zinc-300"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
                   <SettingsIcon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-white">Settings</h1>
+                  <h1 className="text-3xl font-bold text-white">Edit your profile</h1>
                   <p className="text-zinc-400">Manage your account and preferences</p>
                 </div>
               </div>
@@ -391,7 +400,7 @@ const Settings = () => {
                       {!isEditing && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
                         >
                           <Edit3 className="w-4 h-4" />
                           Edit Profile
@@ -444,7 +453,7 @@ const Settings = () => {
                           <div className="mt-2 space-y-1">
                             <button
                               onClick={() => fileInputRef.current?.click()}
-                              className="flex items-center gap-2 text-blue-400 hover:text-blue-300 text-sm"
+                              className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm"
                             >
                               <Upload className="w-4 h-4" />
                               Upload new photo
