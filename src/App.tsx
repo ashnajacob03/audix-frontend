@@ -22,9 +22,11 @@ import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
 import NotFound from './pages/NotFound';
+import Downloads from './pages/Downloads';
 import Artists from './pages/Artists';
 import ArtistProfile from './pages/ArtistProfile';
 import ArtistDashboard from './pages/ArtistDashboard';
+import Song from './pages/Song';
 
 import MainLayout from './layout/MainLayout';
 import AdminLayout from './layout/AdminLayout';
@@ -115,9 +117,15 @@ function App() {
             </AdminRedirectRoute>
           } />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/song/:id" element={<Song />} />
           <Route path="/artists" element={<Artists />} />
           <Route path="/artist/:name" element={<ArtistProfile />} />
           <Route path="/premium" element={<Premium />} />
+          <Route path="/downloads" element={
+            <ProtectedRoute>
+              <Downloads />
+            </ProtectedRoute>
+          } />
           <Route path="/cancel-premium" element={
             <ProtectedRoute>
               <CancelPremium />

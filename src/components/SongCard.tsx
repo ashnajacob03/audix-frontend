@@ -1,7 +1,9 @@
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, MoreVertical, Share2 } from "lucide-react";
 import { useState } from "react";
 import FallbackImage from "./FallbackImage";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import ShareSongModal from "@/components/ShareSongModal";
 
 interface Song {
   _id: string;
@@ -20,6 +22,7 @@ interface SongCardProps {
 const SongCard = ({ song }: SongCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
+  const [isShareOpen, setIsShareOpen] = useState(false);
   
   // Check if this song is currently playing
   const isThisSongPlaying = currentSong?._id === song._id && isPlaying;
@@ -73,7 +76,7 @@ const SongCard = ({ song }: SongCardProps) => {
       </div>
 
       {/* Song Info */}
-      <div className="space-y-1">
+      <div className="space-y-1 pr-8">
         <h3 className="font-semibold text-white truncate group-hover:text-white">
           {song.title}
         </h3>
@@ -81,6 +84,25 @@ const SongCard = ({ song }: SongCardProps) => {
           {song.artist}
         </p>
       </div>
+      {/* Three-dot menu */}
+      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="text-zinc-300 hover:text-white">
+            <MoreVertical className="w-5 h-5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setIsShareOpen(true)}>
+              <Share2 className="w-4 h-4 mr-2" /> Share
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <ShareSongModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        song={{ _id: song._id, title: song.title, artist: song.artist }}
+      />
     </div>
   );
 };

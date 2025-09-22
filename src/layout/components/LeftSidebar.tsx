@@ -3,8 +3,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";
 import apiService from "@/services/api";
@@ -21,6 +21,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 	const { isAuthenticated } = useCustomAuth();
 	const [isLoading, setIsLoading] = useState(false);
 	const [recentSongs, setRecentSongs] = useState<SongItem[]>([]);
+	const [showAllNav, setShowAllNav] = useState(false);
 
 	const recentSearches = useMemo<string[]>(() => {
 		try {
@@ -70,7 +71,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 	return (
 		<div className='h-full flex flex-col gap-2 overflow-hidden'>
 			{/* Navigation menu */}
-            <div className='rounded-lg bg-zinc-900 p-4'>
+			<div className='rounded-lg bg-zinc-900 p-4'>
 				<div className='space-y-2'>
 					<button
 						onClick={onCollapse}
@@ -84,36 +85,12 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 					>
 						<ChevronLeft className='mr-2 size-5' />
 					</button>
-					<Link
-						to={"/"}
-						className={cn(
-							buttonVariants({
-								variant: "ghost",
-								className: "w-full justify-start text-white hover:bg-zinc-800",
-							})
-						)}
-					>
-						<HomeIcon className='mr-2 size-5' />
-						<span className='hidden md:inline'>Home</span>
-					</Link>
 
-					<Link
-						to={"/search"}
-						className={cn(
-							buttonVariants({
-								variant: "ghost",
-								className: "w-full justify-start text-white hover:bg-zinc-800",
-							})
-						)}
-					>
-						<Search className='mr-2 size-5' />
-						<span className='hidden md:inline'>Search</span>
-					</Link>
-
-					{isAuthenticated && (
-						<>
+					{(() => {
+						const navItems: ReactElement[] = [];
+						navItems.push(
 							<Link
-								to={"/liked"}
+								to={"/"}
 								className={cn(
 									buttonVariants({
 										variant: "ghost",
@@ -121,12 +98,13 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 									})
 								)}
 							>
-								<Heart className='mr-2 size-5' />
-								<span className='hidden md:inline'>Liked Songs</span>
+								<HomeIcon className='mr-2 size-5' />
+								<span className='hidden md:inline'>Home</span>
 							</Link>
-
+						);
+						navItems.push(
 							<Link
-								to={"/profile"}
+								to={"/search"}
 								className={cn(
 									buttonVariants({
 										variant: "ghost",
@@ -134,50 +112,129 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 									})
 								)}
 							>
-								<BarChart2 className='mr-2 size-5' />
-								<span className='hidden md:inline'>Activity</span>
+								<Search className='mr-2 size-5' />
+								<span className='hidden md:inline'>Search</span>
 							</Link>
+						);
 
-							<Link
-								to={"/artists"}
-								className={cn(
-									buttonVariants({
-										variant: "ghost",
-										className: "w-full justify-start text-white hover:bg-zinc-800",
-									})
+						if (isAuthenticated) {
+							navItems.push(
+								<Link
+									to={("/downloads")}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<Download className='mr-2 size-5' />
+									<span className='hidden md:inline'>Downloads</span>
+								</Link>
+							);
+							navItems.push(
+								<Link
+									to={"/liked"}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<Heart className='mr-2 size-5' />
+									<span className='hidden md:inline'>Liked Songs</span>
+								</Link>
+							);
+							navItems.push(
+								<Link
+									to={"/profile"}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<BarChart2 className='mr-2 size-5' />
+									<span className='hidden md:inline'>Activity</span>
+								</Link>
+							);
+							navItems.push(
+								<Link
+									to={"/artists"}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<Users className='mr-2 size-5' />
+									<span className='hidden md:inline'>Artists</span>
+								</Link>
+							);
+							navItems.push(
+								<Link
+									to={"/messages"}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<MessageCircle className='mr-2 size-5' />
+									<span className='hidden md:inline'>Messages</span>
+								</Link>
+							);
+							navItems.push(
+								<Link
+									to={"/settings-menu"}
+									className={cn(
+										buttonVariants({
+											variant: "ghost",
+											className: "w-full justify-start text-white hover:bg-zinc-800",
+										})
+									)}
+								>
+									<Settings className='mr-2 size-5' />
+									<span className='hidden md:inline'>Settings</span>
+								</Link>
+							);
+						}
+
+						const visibleItems = showAllNav ? navItems : navItems.slice(0, 4);
+						return (
+							<>
+								{visibleItems}
+								{navItems.length > 4 && (
+									<button
+										onClick={() => setShowAllNav((v) => !v)}
+										className={cn(
+											buttonVariants({
+												variant: "ghost",
+												className: "w-full justify-start text-white hover:bg-zinc-800",
+											})
+										)}
+										aria-expanded={showAllNav}
+									>
+										{showAllNav ? (
+											<>
+												<ChevronUp className='mr-2 size-5' />
+												<span className='hidden md:inline'>Show less</span>
+											</>
+										) : (
+											<>
+												<ChevronDown className='mr-2 size-5' />
+												<span className='hidden md:inline'>Show more</span>
+											</>
+										)}
+									</button>
 								)}
-							>
-								<Users className='mr-2 size-5' />
-								<span className='hidden md:inline'>Artists</span>
-							</Link>
-
-							<Link
-								to={"/messages"}
-								className={cn(
-									buttonVariants({
-										variant: "ghost",
-										className: "w-full justify-start text-white hover:bg-zinc-800",
-									})
-								)}
-							>
-								<MessageCircle className='mr-2 size-5' />
-								<span className='hidden md:inline'>Messages</span>
-							</Link>
-
-					<Link
-						to={"/settings-menu"}
-						className={cn(
-							buttonVariants({
-								variant: "ghost",
-								className: "w-full justify-start text-white hover:bg-zinc-800",
-							})
-						)}
-					>
-						<Settings className='mr-2 size-5' />
-						<span className='hidden md:inline'>Settings</span>
-					</Link>
-						</>
-					)}
+							</>
+						);
+					})()}
 				</div>
 			</div>
 

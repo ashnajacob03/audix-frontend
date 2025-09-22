@@ -219,12 +219,15 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     if (!audioRef.current) return;
     try {
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
-      const candidateUrls = [
-        `${apiBase}/music/songs/${song._id}/stream`,
-        song.audioUrl,
-        song.streamUrl,
-        song.previewUrl,
-      ].filter(Boolean) as string[];
+      const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
+      const candidateUrls = isBlobSource
+        ? [song.audioUrl as string]
+        : ([
+            `${apiBase}/music/songs/${song._id}/stream`,
+            song.audioUrl,
+            song.streamUrl,
+            song.previewUrl,
+          ].filter(Boolean) as string[]);
 
       if (candidateUrls.length === 0) {
         throw new Error('No available audio source URLs for this song');
@@ -260,7 +263,8 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const playSong = useCallback(async (song: Song) => {
     if (!audioRef.current) return;
     const isPremium = !!user && (user.accountType === 'premium');
-    const shouldPlayAd = !isPremium; // treat unauthenticated or non-premium as ad-supported
+    const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
+    const shouldPlayAd = isBlobSource ? false : !isPremium; // never gate offline blob playback with ads
 
     if (shouldPlayAd) {
       try {

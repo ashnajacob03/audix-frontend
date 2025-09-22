@@ -11,6 +11,7 @@ import {
   Volume2,
   ExternalLink,
   Music,
+  Download,
   Volume1,
   VolumeX,
   Heart,
@@ -28,6 +29,7 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { useCustomAuth } from "@/contexts/AuthContext";
 import { SkipLimitModal } from "@/components/SkipLimitModal";
 import api from "@/services/api";
+import { hasOfflineSong, saveOfflineSong } from "@/utils/offline";
 // Using a custom lightweight modal below instead of dropdown for a more professional UX
 
 const formatTime = (time: number) => {
@@ -39,7 +41,7 @@ const formatTime = (time: number) => {
 
 export const PlaybackControls = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useCustomAuth();
+  const { isAuthenticated, user } = useCustomAuth();
   const {
     currentSong,
     isPlaying,
@@ -65,6 +67,9 @@ export const PlaybackControls = () => {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
   const [addBusyId, setAddBusyId] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [isSavedOffline, setIsSavedOffline] = useState(false);
 
   // Sync liked state when song changes
   useEffect(() => {
@@ -89,6 +94,25 @@ export const PlaybackControls = () => {
     };
   }, [currentSong?._id, isAuthenticated]);
 
+  // Check offline saved state when song changes
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      if (!currentSong?._id) {
+        setIsSavedOffline(false);
+        return;
+      }
+      try {
+        const exists = await hasOfflineSong(currentSong._id);
+        if (!cancelled) setIsSavedOffline(!!exists);
+      } catch {
+        if (!cancelled) setIsSavedOffline(false);
+      }
+    };
+    check();
+    return () => { cancelled = true; };
+  }, [currentSong?._id]);
+
   const handleToggleLike = async () => {
     if (!currentSong || likeBusy) return;
     if (!isAuthenticated) {
@@ -104,6 +128,69 @@ export const PlaybackControls = () => {
       // optimistic revert
     } finally {
       setLikeBusy(false);
+    }
+  };
+  const handleDownload = async () => {
+    if (!currentSong) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    // Allow only premium-like accounts
+    const isPremium = user && user.accountType && user.accountType !== 'free';
+    if (!isPremium) {
+      alert('Downloads are available for premium members.');
+      return;
+    }
+      try {
+      setDownloading(true);
+        setDownloadProgress(0);
+      // Try dedicated download endpoint first
+      let blob: Blob;
+      try {
+        blob = await api.requestBlobWithProgress(`/music/songs/${currentSong._id}/download`, { method: 'GET', onProgress: (p: number) => setDownloadProgress(p) });
+      } catch (primaryErr: any) {
+        // Fallback: capture the streaming source as a blob if direct download unavailable
+        try {
+          blob = await api.requestBlobWithProgress(`/music/songs/${currentSong._id}/stream`, { method: 'GET', onProgress: (p: number) => setDownloadProgress(p) });
+        } catch (streamErr: any) {
+          throw primaryErr || streamErr;
+        }
+      }
+
+      // Derive filename (best-effort without headers)
+      const disposition = '';
+      let filename = '';
+      const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition || '');
+      if (match) {
+        filename = decodeURIComponent(match[1] || match[2] || '');
+      }
+      if (!filename) {
+        const safeTitle = (currentSong.title || 'track').replace(/[^a-z0-9_\-]+/gi, '_');
+        const safeArtist = (currentSong.artist || 'artist').replace(/[^a-z0-9_\-]+/gi, '_');
+        filename = `${safeTitle}-${safeArtist}.mp3`;
+      }
+
+      // Save offline
+      await saveOfflineSong({
+        id: currentSong._id,
+        title: currentSong.title,
+        artist: currentSong.artist,
+        coverUrl: currentSong.imageUrl,
+        durationMs: (duration || 0) * 1000,
+        mimeType: blob.type || 'audio/mpeg',
+        downloadedAt: Date.now(),
+        blob,
+      });
+      setIsSavedOffline(true);
+      // Notify listeners and navigate to Downloads
+      try { window.dispatchEvent(new CustomEvent('offline:saved', { detail: { id: currentSong._id } })); } catch {}
+      navigate('/downloads');
+    } catch (e: any) {
+      alert(e?.message || 'Failed to download.');
+    } finally {
+      setDownloading(false);
+      setDownloadProgress(0);
     }
   };
 
@@ -318,6 +405,32 @@ export const PlaybackControls = () => {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Download (premium only) */}
+              {user?.accountType && user.accountType !== 'free' ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`relative p-2 rounded-full transition-colors ${downloading ? 'opacity-70' : ''} ${isSavedOffline ? 'text-emerald-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-800/30'}`}
+                        onClick={isSavedOffline ? undefined : handleDownload}
+                        aria-label={isSavedOffline ? 'Saved offline' : 'Download'}
+                        disabled={downloading || isSavedOffline}
+                      >
+                        <Download className="h-5 w-5" />
+                        {downloading && (
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-zinc-400">
+                            {Math.round(downloadProgress * 100)}%
+                          </span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>{isSavedOffline ? 'Saved offline' : 'Save for offline'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
 
               {/* Add to playlist modal trigger */}
               <button

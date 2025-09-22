@@ -172,6 +172,116 @@ class ApiService {
     }
   }
 
+  // Request that expects a Blob response (e.g., downloads) with 401 refresh handling
+  async requestBlob(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    let token = localStorage.getItem('accessToken');
+
+    const baseHeaders = {
+      // Do NOT set JSON content-type for blob fetches
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(options.headers || {}),
+    };
+
+    let config = {
+      method: options.method || 'GET',
+      headers: baseHeaders,
+    };
+
+    const doFetch = async () => fetch(url, config);
+
+    let resp = await doFetch();
+    if (resp.status === 401) {
+      const storedRefresh = localStorage.getItem('refreshToken');
+      if (storedRefresh) {
+        try {
+          const refreshData = await this.refreshToken(storedRefresh);
+          const newAccess = refreshData?.data?.tokens?.accessToken || refreshData?.accessToken;
+          const newRefresh = refreshData?.data?.tokens?.refreshToken || refreshData?.refreshToken;
+          if (newAccess) localStorage.setItem('accessToken', newAccess);
+          if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+          try { window.dispatchEvent(new CustomEvent('tokenRefreshed', { detail: { accessToken: newAccess, refreshToken: newRefresh } })); } catch {}
+          token = newAccess || token;
+          config = {
+            ...config,
+            headers: {
+              ...config.headers,
+              ...(token && { Authorization: `Bearer ${token}` })
+            }
+          };
+          resp = await doFetch();
+        } catch (e) {
+          // Refresh failed; bubble up auth failure
+          return Promise.reject(new Error('Authentication failed'));
+        }
+      }
+    }
+
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(text || `Request failed (${resp.status})`);
+    }
+    return resp.blob();
+  }
+
+  // Like requestBlob but reports progress via onProgress(0..1)
+  async requestBlobWithProgress(endpoint, { method = 'GET', headers = {}, onProgress } = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    let token = localStorage.getItem('accessToken');
+    let config = {
+      method,
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...headers,
+      },
+    };
+
+    const doFetch = async () => fetch(url, config);
+    let resp = await doFetch();
+    if (resp.status === 401) {
+      const storedRefresh = localStorage.getItem('refreshToken');
+      if (storedRefresh) {
+        try {
+          const refreshData = await this.refreshToken(storedRefresh);
+          const newAccess = refreshData?.data?.tokens?.accessToken || refreshData?.accessToken;
+          const newRefresh = refreshData?.data?.tokens?.refreshToken || refreshData?.refreshToken;
+          if (newAccess) localStorage.setItem('accessToken', newAccess);
+          if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+          try { window.dispatchEvent(new CustomEvent('tokenRefreshed', { detail: { accessToken: newAccess, refreshToken: newRefresh } })); } catch {}
+          token = newAccess || token;
+          config = { ...config, headers: { ...config.headers, ...(token && { Authorization: `Bearer ${token}` }) } };
+          resp = await doFetch();
+        } catch (e) {
+          throw new Error('Authentication failed');
+        }
+      }
+    }
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(text || `Request failed (${resp.status})`);
+    }
+    if (!resp.body) {
+      return resp.blob();
+    }
+    const total = Number(resp.headers.get('content-length') || 0);
+    const reader = resp.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      if (typeof onProgress === 'function' && total > 0) {
+        try { onProgress(Math.min(received / total, 1)); } catch {}
+      }
+    }
+    if (typeof onProgress === 'function' && total === 0) {
+      try { onProgress(1); } catch {}
+    }
+    return new Blob(chunks);
+  }
+
   // Authentication endpoints
   async signup(userData) {
     return this.request('/auth/signup', {

@@ -23,7 +23,13 @@ const FallbackImage = ({
   useEffect(() => {
     setImageError(false);
     setImageLoading(true);
-    setCurrentSrc(src);
+    if (!src) {
+      // If no source provided, immediately use fallback
+      const offlineFallback = generateInlineFallback(fallbackSeed);
+      setCurrentSrc(offlineFallback);
+    } else {
+      setCurrentSrc(src);
+    }
   }, [src]);
 
   // Array of high-quality music-themed fallback images from Unsplash
@@ -43,10 +49,33 @@ const FallbackImage = ({
     return fallbackImages[index] || fallbackImages[0];
   };
 
+  // Generate an inline SVG data URL as an offline-safe placeholder
+  const generateInlineFallback = (seed: string | number) => {
+    const bg = '#27272a';
+    const fg = '#3f3f46';
+    const hash = (typeof seed === 'string' ? seed : String(seed)).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const hue = hash % 360;
+    const grad = `linear-gradient(135deg, hsl(${hue},30%,30%), hsl(${(hue+40)%360},30%,20%))`;
+    // Simple 1x1 SVG with gradient-like rectangle (approx via two rects)
+    const svg = encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>
+        <defs>
+          <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+            <stop offset='0%' stop-color='hsl(${hue},30%,30%)' />
+            <stop offset='100%' stop-color='hsl(${(hue+40)%360},30%,20%)' />
+          </linearGradient>
+        </defs>
+        <rect width='400' height='400' fill='url(#g)' />
+      </svg>`
+    );
+    return `data:image/svg+xml;charset=utf-8,${svg}`;
+  };
+
   const handleImageError = () => {
     if (!imageError) {
       setImageError(true);
-      setCurrentSrc(getFallbackImage(fallbackSeed));
+      const offlineSafe = navigator.onLine ? getFallbackImage(fallbackSeed) : generateInlineFallback(fallbackSeed);
+      setCurrentSrc(offlineSafe);
       setImageLoading(true); // Start loading the fallback image
     }
     if (onError) {

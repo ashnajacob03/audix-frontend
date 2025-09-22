@@ -10,7 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
+import api from '@/services/api.js';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import {
   MessageCircle,
   Send,
@@ -95,9 +97,73 @@ const Messages = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [friends, setFriends] = useState<FollowedUser[]>([]);
+  const { playSong } = useAudioPlayer();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Render message content with clickable links
+  const playSongFromPath = async (path: string) => {
+    try {
+      const match = path.match(/\/song\/(.+?)(?:$|[?#])/);
+      const id = match?.[1];
+      if (!id) return;
+      const resp = await api.getSong(id);
+      const data = resp?.data || resp;
+      if (!data) return;
+      const song = {
+        _id: data._id || data.id,
+        title: data.title,
+        artist: data.artist,
+        imageUrl: data.imageUrl,
+        duration: data.duration,
+        previewUrl: data.previewUrl,
+      } as any;
+      await playSong(song);
+    } catch (e) {
+      // no-op
+    }
+  };
+
+  const renderMessageContent = (text: string) => {
+    if (!text) return null;
+    const urlRegex = /((https?:\/\/|www\.)[^\s]+)/gi;
+    const parts = text.split(urlRegex);
+    return (
+      <>
+        {parts.map((part, idx) => {
+          const isUrl = /^(https?:\/\/|www\.)/i.test(part);
+          if (!isUrl) {
+            return <span key={idx}>{part}</span>;
+          }
+          const href = part.startsWith('http') ? part : `http://${part}`;
+          // Internal song links should open in the same tab and use client routing
+          try {
+            const u = new URL(href);
+            const sameHost = u.host === window.location.host;
+            if (sameHost && u.pathname.startsWith('/song/')) {
+              const to = `${u.pathname}${u.search}${u.hash}`;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => playSongFromPath(to)}
+                  className="text-blue-400 underline hover:text-blue-300 break-all"
+                >
+                  {part}
+                </button>
+              );
+            }
+          } catch {}
+          // External links: open in new tab
+          return (
+            <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300 break-all">
+              {part}
+            </a>
+          );
+        })}
+      </>
+    );
+  };
 
   // Delete message function
   const handleDeleteMessage = async (messageId: string) => {
@@ -851,7 +917,7 @@ const Messages = () => {
                                   : 'bg-zinc-700 text-white'
                               }`}
                             >
-                              <p className="text-sm">{message.content}</p>
+                              <p className="text-sm break-words">{renderMessageContent(message.content)}</p>
                               <div className={`flex items-center justify-between mt-1 text-xs ${
                                 message.senderId === user?.id ? 'text-green-100' : 'text-zinc-400'
                               }`}>
