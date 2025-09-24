@@ -10,6 +10,7 @@ interface UserProfile {
   profilePicture?: string;
   isEmailVerified: boolean;
   accountType: string;
+  isArtist?: boolean;
   isAdmin: boolean;
   createdAt: string;
   lastLogin?: string;
@@ -41,6 +42,7 @@ export const useUserProfile = (): UseUserProfileReturn => {
       profilePicture: customUser.picture,
       isEmailVerified: customUser.isEmailVerified || false,
       accountType: customUser.accountType || 'free',
+      isArtist: customUser.isArtist || false,
       isAdmin: customUser.isAdmin || false,
       createdAt: new Date().toISOString(),
     };
@@ -104,6 +106,7 @@ export const useUserProfile = (): UseUserProfileReturn => {
           profilePicture: mongoUser.picture,
           isEmailVerified: mongoUser.isEmailVerified,
           accountType: mongoUser.accountType || 'free',
+          isArtist: !!mongoUser.isArtist,
           isAdmin: mongoUser.isAdmin || false,
           createdAt: mongoUser.createdAt,
           lastLogin: mongoUser.lastLogin,

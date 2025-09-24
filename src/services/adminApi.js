@@ -91,6 +91,35 @@ const adminApi = {
     }
   },
 
+  // Artist verifications
+  getArtistVerifications: async () => {
+    try {
+      const response = await api.get('/admin/artist-verifications');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching artist verifications:', error);
+      throw error;
+    }
+  },
+  approveArtistVerification: async (id) => {
+    try {
+      const response = await api.post(`/admin/artist-verifications/${id}/approve`);
+      return response.data;
+    } catch (error) {
+      console.error('Error approving artist:', error);
+      throw error;
+    }
+  },
+  rejectArtistVerification: async (id, notes) => {
+    try {
+      const response = await api.post(`/admin/artist-verifications/${id}/reject`, { notes });
+      return response.data;
+    } catch (error) {
+      console.error('Error rejecting artist:', error);
+      throw error;
+    }
+  },
+
 };
 
 export default adminApi; 

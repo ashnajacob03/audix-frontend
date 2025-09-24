@@ -172,6 +172,19 @@ class ApiService {
     }
   }
 
+  async requestForm(endpoint, formData, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    let token = localStorage.getItem('accessToken');
+    const headers = {
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(options.headers || {}),
+    };
+    const resp = await fetch(url, { method: options.method || 'POST', body: formData, headers });
+    const data = await resp.json().catch(() => undefined);
+    if (!resp.ok) throw new Error((data && data.message) || 'Request failed');
+    return data;
+  }
+
   // Request that expects a Blob response (e.g., downloads) with 401 refresh handling
   async requestBlob(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
@@ -598,6 +611,18 @@ class ApiService {
   // Utility methods
   isAuthenticated() {
     return !!localStorage.getItem('accessToken');
+  }
+
+  // ===== ARTIST VERIFICATION =====
+  async submitArtistVerification(formData) {
+    return this.requestForm('/user/artist-verification', formData, { method: 'POST' });
+  }
+
+  async setArtistStatus(isArtist) {
+    return this.request('/user/artist-status', {
+      method: 'PUT',
+      body: { isArtist }
+    });
   }
 
   getToken() {

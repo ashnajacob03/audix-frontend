@@ -181,7 +181,7 @@ const Settings = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab && ['profile','account','notifications'].includes(tab)) {
+    if (tab && ['profile','account','notifications','artist'].includes(tab)) {
       setActiveTab(tab);
     } else if (tab === 'appearance') {
       // Redirect legacy links to account tab
@@ -845,6 +845,77 @@ const Settings = () => {
                           )}
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Artist Tab */}
+                {activeTab === 'artist' && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold text-white tracking-tight">Artist Settings</h2>
+                    <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-white font-medium">Artist Profile</h3>
+                          <p className="text-zinc-500 text-sm">Manage your public artist details</p>
+                        </div>
+                        <button onClick={() => navigate('/artist')} className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors">Open Artist Dashboard</button>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-white font-medium">Uploads</h3>
+                          <p className="text-zinc-500 text-sm">Upload tracks, cover art, and manage releases</p>
+                        </div>
+                        <button onClick={() => navigate('/artist')} className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors">Go to Uploads</button>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-white font-medium">Earnings & Payouts</h3>
+                          <p className="text-zinc-500 text-sm">View earnings and manage payout details</p>
+                        </div>
+                        <button onClick={() => navigate('/artist')} className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors">Manage Payouts</button>
+                      </div>
+                    </div>
+                    <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-white font-medium">Switch back to Listener</h3>
+                          <p className="text-zinc-500 text-sm">Disable artist features and use a normal account</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const Swal = (window as any).Swal || (await import('sweetalert2')).default;
+                            const r = await Swal.fire({
+                              title: 'Switch to Listener?',
+                              text: 'You can switch back to artist later from Settings.',
+                              icon: 'warning',
+                              showCancelButton: true,
+                              confirmButtonText: 'Yes, switch',
+                              cancelButtonText: 'Cancel',
+                              confirmButtonColor: '#ef4444',
+                              background: '#0a0a0a',
+                              color: '#e5e5e5'
+                            });
+                            if (!r.isConfirmed) return;
+                            try {
+                              const api = (await import('@/services/api')).default;
+                              await api.setArtistStatus(false);
+                              await Swal.fire({ title: 'Switched to Listener', icon: 'success', confirmButtonColor: '#10b981', background: '#0a0a0a', color: '#e5e5e5' });
+                              navigate('/settings-menu');
+                              window.location.reload();
+                            } catch (e) {
+                              await Swal.fire({ title: 'Failed to switch', icon: 'error', background: '#0a0a0a', color: '#e5e5e5' });
+                            }
+                          }}
+                          className="px-4 py-2 rounded-md border border-red-700 text-red-400 hover:bg-red-900/20 transition-colors"
+                        >
+                          Switch to Listener
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

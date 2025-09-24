@@ -3,6 +3,8 @@ import AudixTopbar from '@/components/AudixTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Settings, User as UserIcon, LogOut, Repeat2, FileText, Bell } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLogout } from '@/hooks/useLogout';
 
 type MenuItem = {
@@ -17,13 +19,62 @@ type MenuItem = {
 const SettingsMenu: React.FC = () => {
   const navigate = useNavigate();
   const { logout } = useLogout();
+  const { userProfile } = useUserProfile();
+  const handleSwitchToListener = async () => {
+    const result = await Swal.fire({
+      title: 'Switch back to Listener?',
+      text: 'You will lose access to artist features. You can switch back later anytime.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, switch',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#ef4444',
+      background: '#0a0a0a',
+      color: '#e5e5e5'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      const api = (await import('@/services/api')).default;
+      await api.setArtistStatus(false);
+      await Swal.fire({ title: 'Switched to Listener', icon: 'success', confirmButtonColor: '#10b981', background: '#0a0a0a', color: '#e5e5e5' });
+      navigate('/settings-menu');
+      window.location.reload();
+    } catch (e) {
+      await Swal.fire({ title: 'Failed to switch', icon: 'error', background: '#0a0a0a', color: '#e5e5e5' });
+    }
+  };
+
+  const handleSwitchToArtist = async () => {
+    const result = await Swal.fire({
+      title: 'Switch to Artist account',
+      text: 'Are you an artist? Switching will start a quick verification where you upload proof (ID, social links, portfolio, or prior releases). After approval, you’ll unlock artist features.',
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, continue',
+      cancelButtonText: 'Not now',
+      confirmButtonColor: '#10b981',
+      background: '#0a0a0a',
+      color: '#e5e5e5'
+    });
+
+    if (result.isConfirmed) {
+      navigate('/artist-verification');
+    }
+  };
 
   const items: MenuItem[] = [
     { key: 'edit-profile', label: 'Edit profile', to: '/settings?tab=profile', icon: <UserIcon className="w-4 h-4" /> },
     { key: 'account', label: 'Account settings', to: '/settings?tab=account', icon: <Settings className="w-4 h-4" /> },
     { key: 'notifications', label: 'Notifications', to: '/settings?tab=notifications', icon: <Bell className="w-4 h-4" /> },
     { key: 'payment-invoices', label: 'Payment invoices', to: '/PaymentInvoices', icon: <FileText className="w-4 h-4" /> },
-    { key: 'switch-account', label: 'Switch account', variant: 'highlight', icon: <Repeat2 className="w-4 h-4" />, onClick: () => logout() },
+    ...(userProfile?.isArtist
+      ? [
+          { key: 'artist-settings', label: 'Artist settings', to: '/settings?tab=artist', icon: <Settings className="w-4 h-4" /> },
+          { key: 'switch-listener', label: 'Switch to Listener', variant: 'danger', icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToListener },
+        ]
+      : [
+          { key: 'switch-account', label: 'Switch to Artist', variant: 'highlight', icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToArtist },
+        ]),
     { key: 'logout', label: 'Logout', variant: 'danger', icon: <LogOut className="w-4 h-4" />, onClick: () => logout() },
   ];
 

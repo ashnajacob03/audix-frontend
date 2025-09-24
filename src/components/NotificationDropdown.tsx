@@ -295,7 +295,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
               <button
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "default" }),
-                  "relative rounded-md flex items-center justify-center bg-zinc-800/40 hover:bg-zinc-700/40 text-zinc-300 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-all w-10 h-10"
+                  "relative flex items-center justify-center text-zinc-300 hover:text-white transition-colors bg-transparent hover:bg-transparent border-0 p-0 cursor-pointer"
                 )}
               >
                 <Bell className="size-4" />

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import AdminTopbar from '@/components/AdminTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserManagement from '@/components/admin/UserManagement';
+import ArtistVerifications from '@/components/admin/ArtistVerifications';
 import {
   Shield,
   Users,
@@ -342,6 +343,16 @@ const AdminDashboard = () => {
                 <Users className="w-4 h-4" />
                 Users
               </button>
+              <button
+                onClick={() => setActiveTab('artist-verifications')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                  activeTab === 'artist-verifications'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                }`}
+              >
+                Artist Verifications
+              </button>
             </div>
           </div>
 
@@ -374,6 +385,7 @@ const AdminDashboard = () => {
           )}
 
           {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'artist-verifications' && <ArtistVerifications />}
 
           {/* Show original dashboard content only when dashboard tab is active */}
           {activeTab === 'dashboard' && (

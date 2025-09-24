@@ -1,6 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { Users, Music, UserPlus, UserCheck, Clock, Crown, UserX, Send, Clock as ClockIcon, ChevronRight } from "lucide-react";
+import { Users, UserPlus, UserCheck, Crown, UserX, Send, Clock as ClockIcon, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
@@ -25,13 +25,10 @@ interface User {
 }
 
 const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
-	const { isAuthenticated, user: currentUser } = useCustomAuth();
+	const { isAuthenticated } = useCustomAuth();
 	const navigate = useNavigate();
 	const [users, setUsers] = useState<User[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
-	const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set());
-	const [requestSentUsers, setRequestSentUsers] = useState<Set<string>>(new Set());
-	const [requestReceivedUsers, setRequestReceivedUsers] = useState<Set<string>>(new Set());
 	const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
 
 	const ADMIN_EMAIL = 'ashnajacob003@gmail.com'; // Change to your actual admin email
@@ -53,26 +50,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 			const data = await response.json();
 			if (data.success) {
 				setUsers(data.data.users);
-				// Initialize following and request states
-				const following = new Set();
-				const sentRequests = new Set();
-				const receivedRequests = new Set();
-
-				data.data.users.forEach((user: User) => {
-					if (user.isFollowing) {
-						following.add(user.id);
-					}
-					if (user.friendStatus === 'request_sent') {
-						sentRequests.add(user.id);
-					}
-					if (user.friendStatus === 'request_received') {
-						receivedRequests.add(user.id);
-					}
-				});
-
-				setFollowingUsers(following);
-				setRequestSentUsers(sentRequests);
-				setRequestReceivedUsers(receivedRequests);
 			}
 		} catch (error) {
 			console.error('Error fetching users:', error);
@@ -100,28 +77,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 		}
 	};
 
-	// Fix relationships (temporary)
-	const fixRelationships = async () => {
-		try {
-			const token = localStorage.getItem('accessToken');
-			const response = await fetch(`${API_BASE_URL}/user/fix-relationships`, {
-				method: 'POST',
-				headers: {
-					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/json',
-				},
-			});
-			const data = await response.json();
-			console.log('Fix relationships result:', data);
-			if (data.success) {
-				toast.success(`Fixed ${data.data.fixed} relationships`);
-				fetchUsers(); // Refresh the user list
-			}
-		} catch (error) {
-			console.error('Fix relationships failed:', error);
-			toast.error('Failed to fix relationships');
-		}
-	};
+	// (debug-only utilities removed in production UI)
 
 	// Send follow request
 	const handleFollowRequest = async (userId: string) => {
@@ -154,7 +110,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 				success: data.success 
 			});
 			if (data.success) {
-				setRequestSentUsers(prev => new Set(prev).add(userId));
 				toast.success('Follow request sent');
 				fetchUsers(); // <-- refetch
 			} else {
@@ -195,12 +150,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 			const data = await response.json();
 			if (data.success) {
-				setRequestReceivedUsers(prev => {
-					const newSet = new Set(prev);
-					newSet.delete(userId);
-					return newSet;
-				});
-				setFollowingUsers(prev => new Set(prev).add(userId));
 				toast.success('Follow request accepted');
 				fetchUsers(); // <-- refetch
 			} else {
@@ -236,11 +185,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 			const data = await response.json();
 			if (data.success) {
-				setRequestReceivedUsers(prev => {
-					const newSet = new Set(prev);
-					newSet.delete(userId);
-					return newSet;
-				});
 				toast.success('Follow request declined');
 				fetchUsers(); // <-- refetch
 			} else {
@@ -276,11 +220,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 			const data = await response.json();
 			if (data.success) {
-				setRequestSentUsers(prev => {
-					const newSet = new Set(prev);
-					newSet.delete(userId);
-					return newSet;
-				});
 				toast.success('Follow request cancelled');
 				fetchUsers(); // <-- refetch
 			} else {
@@ -316,11 +255,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 			const data = await response.json();
 			if (data.success) {
-				setFollowingUsers(prev => {
-					const newSet = new Set(prev);
-					newSet.delete(userId);
-					return newSet;
-				});
 				toast.success('User unfollowed');
 				fetchUsers(); // <-- refetch
 			} else {
@@ -336,20 +270,6 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 				return newSet;
 			});
 		}
-	};
-
-	// Format time ago
-	const getTimeAgo = (dateString: string) => {
-		const date = new Date(dateString);
-		const now = new Date();
-		const diffInMs = now.getTime() - date.getTime();
-		const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-		if (diffInDays === 0) return 'Today';
-		if (diffInDays === 1) return 'Yesterday';
-		if (diffInDays < 7) return `${diffInDays} days ago`;
-		if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-		return `${Math.floor(diffInDays / 30)} months ago`;
 	};
 
 
@@ -370,17 +290,19 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 	}
 
     return (
-        <div className='h-full rounded-lg bg-zinc-900 p-4 flex flex-col'>
+        <div className='h-full rounded-xl bg-gradient-to-b from-zinc-900 to-black p-4 flex flex-col border border-zinc-800/60 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]'>
             <div className='flex items-center justify-between mb-4'>
 				<div className='flex items-center gap-2'>
 					<Users className='size-5 text-white' />
-					<h2 className='text-white font-semibold'>Discover People</h2>
+					<h2 className='text-white font-semibold tracking-tight'>Discover People</h2>
 				</div>
                 <div className='flex items-center gap-2'>
-                    <span className='text-xs text-zinc-400'>{users.filter(user => user.email !== ADMIN_EMAIL).length} users</span>
+                    <span className='text-xs text-zinc-400 bg-zinc-800/70 border border-zinc-700/60 px-2 py-0.5 rounded-full'>
+                        {users.filter(user => user.email !== ADMIN_EMAIL).length} users
+                    </span>
                     <button
                         onClick={onCollapse}
-                        className='p-1.5 rounded-md hover:bg-zinc-800 text-zinc-300'
+                        className='p-1.5 rounded-md hover:bg-zinc-800/70 text-zinc-300 border border-transparent hover:border-zinc-700'
                         aria-label='Collapse sidebar'
                     >
                         <ChevronRight className='size-4' />
@@ -393,7 +315,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 					{isLoading ? (
 						// Loading skeleton
 						Array.from({ length: 5 }).map((_, index) => (
-							<div key={index} className='flex items-center gap-3 p-3 rounded-lg bg-zinc-800/50 animate-pulse'>
+							<div key={index} className='flex items-center gap-3 p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 animate-pulse'>
 								<div className='size-10 rounded-full bg-zinc-700'></div>
 								<div className='flex-1'>
 									<div className='h-4 bg-zinc-700 rounded mb-2'></div>
@@ -419,19 +341,19 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 								);
 								if (followingUsers.length > 0) {
 									return (
-										<div>
-											<div className='flex items-center gap-2 mb-3'>
+								<div>
+									<div className='flex items-center gap-2 mb-3'>
 												<UserCheck className='size-4 text-green-500' />
-												<h3 className='text-sm font-medium text-green-500'>Following People</h3>
-												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+										<h3 className='text-xs font-semibold uppercase tracking-wider text-green-500'>Following People</h3>
+										<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{followingUsers.length}
 												</span>
 											</div>
-											<div className='space-y-3'>
+									<div className='space-y-3'>
 												{followingUsers.map((user) => (
-													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+											<div key={user.id} className='flex items-start gap-3 p-3 rounded-xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-colors group'>
 														{/* Avatar */}
-														<div className='relative flex-shrink-0'>
+												<div className='relative flex-shrink-0'>
 															<UserAvatar 
 																size="md" 
 																src={user.picture} 
@@ -443,21 +365,23 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 														{/* User info and follow button */}
 														<div className='flex-1 min-w-0'>
-															<div className='flex items-center gap-2 mb-1'>
-																<p className='text-white text-sm font-medium truncate'>
-																	{user.firstName} {user.lastName}
-																</p>
-																{user.accountType === 'premium' && (
-																	<Crown className='size-3 text-yellow-500' />
-																)}
-															</div>
+										<div className='flex items-center gap-2 mb-1'>
+											<div className='flex items-center gap-2 min-w-0'>
+												<p className='text-white text-sm font-medium truncate'>
+													{user.firstName} {user.lastName}
+												</p>
+												{user.accountType === 'premium' && (
+													<Crown className='size-3 text-yellow-500' />
+												)}
+											</div>
+										</div>
 
-															{/* Follow button under name */}
-															<div className='mb-2'>
-																<div className='flex gap-2'>
+										{/* Followed: action buttons under name */}
+												<div className='mb-2'>
+											<div className='flex gap-2'>
 																	<button
 																		onClick={() => handleUnfollow(user.id)}
-																		className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-800 text-white border border-zinc-600 hover:bg-red-600 hover:border-red-600 hover:text-white group'
+															className='px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-900 text-white border border-zinc-700 hover:bg-red-600 hover:border-red-600 group'
 																	>
 																		<UserCheck className='size-3 group-hover:hidden' />
 																		<UserX className='size-3 hidden group-hover:block' />
@@ -466,7 +390,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 																	</button>
 																	<button
 																		onClick={() => navigate(`/messages?friendId=${user.id}`)}
-																		className='px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105 shadow-lg hover:shadow-green-500/25'
+													className='px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-black hover:bg-[#1ed760] hover:scale-105'
 																	>
 																		<Send className='size-3' />
 																		<span>Message</span>
@@ -474,21 +398,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 																</div>
 															</div>
 
-															<div className='flex items-center gap-2 text-xs text-zinc-400'>
-																<span className='truncate'>@{user.email.split('@')[0]}</span>
-																{user.followersCount > 0 && (
-																	<>
-																		<span>•</span>
-																		<span>{user.followersCount} followers</span>
-																	</>
-																)}
-															</div>
-															{user.lastSeen && (
-																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
-																	<Clock className='size-3' />
-																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
-																</div>
-															)}
+										{/* Meta hidden per request */}
 														</div>
 													</div>
 												))}
@@ -506,17 +416,17 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 								);
 								if (requestedUsers.length > 0) {
 									return (
-										<div>
-											<div className='flex items-center gap-2 mb-3'>
+									<div>
+										<div className='flex items-center gap-2 mb-3'>
 												<ClockIcon className='size-4 text-orange-500' />
-												<h3 className='text-sm font-medium text-orange-500'>Requested People</h3>
-												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+											<h3 className='text-xs font-semibold uppercase tracking-wider text-orange-500'>Requested People</h3>
+											<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{requestedUsers.length}
 												</span>
 											</div>
-											<div className='space-y-3'>
+										<div className='space-y-3'>
 												{requestedUsers.map((user) => (
-													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+												<div key={user.id} className='flex items-start gap-3 p-3 rounded-xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-colors group'>
 														{/* Avatar */}
 														<div className='relative flex-shrink-0'>
 															<UserAvatar 
@@ -530,48 +440,35 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 														{/* User info and follow button */}
 														<div className='flex-1 min-w-0'>
-															<div className='flex items-center gap-2 mb-1'>
-																<p className='text-white text-sm font-medium truncate'>
-																	{user.firstName} {user.lastName}
-																</p>
-																{user.accountType === 'premium' && (
-																	<Crown className='size-3 text-yellow-500' />
-																)}
-															</div>
 
-															{/* Follow button under name */}
-															<div className='mb-2'>
-																<button
-																	onClick={() => handleCancelRequest(user.id)}
-																	className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all duration-200 ${
-																		processingRequests.has(user.id) 
-																			? 'bg-zinc-700 text-white cursor-not-allowed opacity-70' 
-																			: 'bg-orange-600 text-white hover:bg-red-600 hover:scale-105 group'
-																	}`}
-																	disabled={processingRequests.has(user.id)}
-																>
-																	<ClockIcon className='size-3 group-hover:hidden' />
-																	<UserX className='size-3 hidden group-hover:block' />
-																	<span className='group-hover:hidden'>Requested</span>
-																	<span className='hidden group-hover:block'>Cancel</span>
-																</button>
-															</div>
+									<div className='flex items-center justify-between gap-2 mb-1'>
+										<div className='flex items-center gap-2 min-w-0'>
+											<p className='text-white text-sm font-medium truncate'>
+												{user.firstName} {user.lastName}
+											</p>
+											{user.accountType === 'premium' && (
+												<Crown className='size-3 text-yellow-500' />
+											)}
+										</div>
+										<div className='flex-shrink-0'>
+											<button
+												onClick={() => handleCancelRequest(user.id)}
+												className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-all duration-200 ${
+													processingRequests.has(user.id) 
+														? 'bg-zinc-800 text-white cursor-not-allowed opacity-70' 
+														: 'bg-orange-600 text-white hover:bg-red-600 hover:scale-105 group'
+												}`}
+												disabled={processingRequests.has(user.id)}
+											>
+												<ClockIcon className='size-3 group-hover:hidden' />
+												<UserX className='size-3 hidden group-hover:block' />
+												<span className='group-hover:hidden'>Requested</span>
+												<span className='hidden group-hover:block'>Cancel</span>
+											</button>
+										</div>
+									</div>
 
-															<div className='flex items-center gap-2 text-xs text-zinc-400'>
-																<span className='truncate'>@{user.email.split('@')[0]}</span>
-																{user.followersCount > 0 && (
-																	<>
-																		<span>•</span>
-																		<span>{user.followersCount} followers</span>
-																	</>
-																)}
-															</div>
-															{user.lastSeen && (
-																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
-																	<Clock className='size-3' />
-																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
-																</div>
-															)}
+									{/* Meta hidden per request */}
 														</div>
 													</div>
 												))}
@@ -593,14 +490,14 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 										<div>
 											<div className='flex items-center gap-2 mb-3'>
 												<UserPlus className='size-4 text-blue-500' />
-												<h3 className='text-sm font-medium text-blue-500'>Discover New People</h3>
-												<span className='text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full'>
+												<h3 className='text-xs font-semibold uppercase tracking-wider text-blue-500'>Discover New People</h3>
+												<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{notFollowingUsers.length}
 												</span>
 											</div>
 											<div className='space-y-3'>
 												{notFollowingUsers.map((user) => (
-													<div key={user.id} className='flex items-start gap-3 p-3 hover:bg-zinc-800/50 rounded-lg transition-colors group'>
+													<div key={user.id} className='flex items-start gap-3 p-3 rounded-xl border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-colors group'>
 														{/* Avatar */}
 														<div className='relative flex-shrink-0'>
 															<UserAvatar 
@@ -614,67 +511,53 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 
 														{/* User info and follow button */}
 														<div className='flex-1 min-w-0'>
-															<div className='flex items-center gap-2 mb-1'>
-																<p className='text-white text-sm font-medium truncate'>
-																	{user.firstName} {user.lastName}
-																</p>
-																{user.accountType === 'premium' && (
-																	<Crown className='size-3 text-yellow-500' />
-																)}
-															</div>
+										<div className='flex items-center justify-between gap-2 mb-1'>
+											<div className='flex items-center gap-2 min-w-0'>
+												<p className='text-white text-sm font-medium truncate'>
+													{user.firstName} {user.lastName}
+												</p>
+												{user.accountType === 'premium' && (
+													<Crown className='size-3 text-yellow-500' />
+												)}
+											</div>
+											<div className='flex-shrink-0'>
+												{user.friendStatus === 'request_received' ? (
+													<div className='flex gap-2'>
+														<button
+															onClick={() => handleAcceptRequest(user.id)}
+															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+															disabled={processingRequests.has(user.id)}
+														>
+															<UserCheck className='size-3' />
+															<span>Accept</span>
+														</button>
+														<button
+															onClick={() => handleDeclineRequest(user.id)}
+															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+															disabled={processingRequests.has(user.id)}
+														>
+															<UserX className='size-3' />
+															<span>Reject</span>
+														</button>
+													</div>
+												) : (
+													<button
+															onClick={() => handleFollowRequest(user.id)}
+															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 ${
+																processingRequests.has(user.id)
+																	? 'bg-zinc-800 text-white cursor-not-allowed opacity-70'
+																	: 'bg-[#1db954] text-black hover:bg-[#1ed760] hover:scale-105'
+															}`}
+															disabled={processingRequests.has(user.id)}
+														>
+															<UserPlus className='size-3' />
+															<span>Follow</span>
+														</button>
+												)}
+											</div>
+										</div>
 
-															{/* Follow button under name */}
-															<div className='mb-2'>
-																{user.friendStatus === 'request_received' ? (
-																	<div className='flex gap-2'>
-																		<button
-																			onClick={() => handleAcceptRequest(user.id)}
-																			className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
-																			disabled={processingRequests.has(user.id)}
-																		>
-																			<UserCheck className='size-3' />
-																			<span>Accept</span>
-																		</button>
-																		<button
-																			onClick={() => handleDeclineRequest(user.id)}
-																			className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
-																			disabled={processingRequests.has(user.id)}
-																		>
-																			<UserX className='size-3' />
-																			<span>Reject</span>
-																		</button>
-																	</div>
-																) : (
-																	<button
-																		onClick={() => handleFollowRequest(user.id)}
-																		className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${
-																			processingRequests.has(user.id)
-																				? 'bg-zinc-700 text-white cursor-not-allowed opacity-70'
-																				: 'bg-[#1db954] text-white hover:bg-[#1ed760] hover:scale-105'
-																		}`}
-																		disabled={processingRequests.has(user.id)}
-																	>
-																		<UserPlus className='size-3' />
-																		<span>Follow</span>
-																	</button>
-																)}
-															</div>
-
-															<div className='flex items-center gap-2 text-xs text-zinc-400'>
-																<span className='truncate'>@{user.email.split('@')[0]}</span>
-																{user.followersCount > 0 && (
-																	<>
-																		<span>•</span>
-																		<span>{user.followersCount} followers</span>
-																	</>
-																)}
-															</div>
-															{user.lastSeen && (
-																<div className='flex items-center gap-1 text-xs text-zinc-500 mt-1'>
-																	<Clock className='size-3' />
-																	<span>{user.isOnline ? 'Online' : `Active ${getTimeAgo(user.lastSeen)}`}</span>
-																</div>
-															)}
+									{/* Meta hidden per request */}
 														</div>
 													</div>
 												))}

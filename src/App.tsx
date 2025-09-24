@@ -20,6 +20,7 @@ import Settings from './pages/Settings';
 import PaymentInvoices from './pages/PaymentInvoices';
 import SettingsMenu from './pages/SettingsMenu';
 import Stats from './pages/Stats';
+import ArtistVerification from './pages/ArtistVerification';
 import LikedSongs from './pages/LikedSongs';
 import Playlists from './pages/Playlists';
 import NotFound from './pages/NotFound';
@@ -27,6 +28,13 @@ import Downloads from './pages/Downloads';
 import Artists from './pages/Artists';
 import ArtistProfile from './pages/ArtistProfile';
 import ArtistDashboard from './pages/ArtistDashboard';
+import ArtistMusic from './pages/ArtistMusic';
+import ArtistAnalytics from './pages/ArtistAnalytics';
+import ArtistAudience from './pages/ArtistAudience';
+import ArtistRevenue from './pages/ArtistRevenue';
+import ArtistMarketing from './pages/ArtistMarketing';
+import ArtistFans from './pages/ArtistFans';
+import ArtistSettings from './pages/ArtistSettings';
 import Song from './pages/Song';
 
 import MainLayout from './layout/MainLayout';
@@ -112,6 +120,22 @@ function App() {
 
         {/* Main app routes with Audix layout */}
         <Route element={<MainLayout />}>
+          {/* Artist pages render inside MainLayout's center content */}
+          <Route
+            path="/artist"
+            element={
+              <ProtectedRoute>
+                <ArtistDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/artist/music" element={<ProtectedRoute><ArtistMusic /></ProtectedRoute>} />
+          <Route path="/artist/analytics" element={<ProtectedRoute><ArtistAnalytics /></ProtectedRoute>} />
+          <Route path="/artist/audience" element={<ProtectedRoute><ArtistAudience /></ProtectedRoute>} />
+          <Route path="/artist/revenue" element={<ProtectedRoute><ArtistRevenue /></ProtectedRoute>} />
+          <Route path="/artist/marketing" element={<ProtectedRoute><ArtistMarketing /></ProtectedRoute>} />
+          <Route path="/artist/fans" element={<ProtectedRoute><ArtistFans /></ProtectedRoute>} />
+          <Route path="/artist/settings" element={<ProtectedRoute><ArtistSettings /></ProtectedRoute>} />
           <Route path="/" element={
             <AdminRedirectRoute>
               <Home />
@@ -221,6 +245,14 @@ function App() {
               </ProtectedRoute>
             } 
           />
+          <Route
+            path="/artist-verification"
+            element={
+              <ProtectedRoute>
+                <ArtistVerification />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -236,17 +268,7 @@ function App() {
           />
         </Route>
 
-        {/* Artist routes with dedicated layout */}
-        <Route element={<ArtistLayout />}>
-          <Route
-            path="/artist"
-            element={
-              <ProtectedRoute>
-                <ArtistDashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+        {/* (Removed dedicated ArtistLayout - now rendered inside MainLayout) */}
       </Routes>
       <Toaster />
         </SocketProvider>

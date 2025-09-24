@@ -3,7 +3,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft, Download, ChevronDown, ChevronUp, Music2, Wallet2, Megaphone, MessageSquare } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";
@@ -19,6 +20,7 @@ type SongItem = {
 
 const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 	const { isAuthenticated } = useCustomAuth();
+	const { userProfile } = useUserProfile();
 	const [isLoading, setIsLoading] = useState(false);
 	const [recentSongs, setRecentSongs] = useState<SongItem[]>([]);
 	const [showAllNav, setShowAllNav] = useState(false);
@@ -69,9 +71,9 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 	}, [recentSearches]);
 
 	return (
-		<div className='h-full flex flex-col gap-2 overflow-hidden'>
+		<div className='h-full flex flex-col gap-2 overflow-auto min-h-0'>
 			{/* Navigation menu */}
-			<div className='rounded-lg bg-zinc-900 p-4'>
+			<div className='rounded-lg bg-zinc-900 p-4 flex-shrink-0'>
 				<div className='space-y-2'>
 					<button
 						onClick={onCollapse}
@@ -182,7 +184,38 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 									<span className='hidden md:inline'>Artists</span>
 								</Link>
 							);
-							// Downloads should be 7th
+						// If artist, show Artist-specific menus directly
+						if ((userProfile as any)?.isArtist) {
+							const artistLinks = [
+								{ key: 'artist-overview', to: '/artist', label: 'Artist Overview', icon: BarChart2 },
+								{ key: 'artist-music', to: '/artist/music', label: 'Music', icon: Music2 },
+								{ key: 'artist-analytics', to: '/artist/analytics', label: 'Analytics', icon: BarChart2 },
+								{ key: 'artist-audience', to: '/artist/audience', label: 'Audience', icon: Users },
+								{ key: 'artist-revenue', to: '/artist/revenue', label: 'Revenue', icon: Wallet2 },
+								{ key: 'artist-marketing', to: '/artist/marketing', label: 'Marketing', icon: Megaphone },
+								{ key: 'artist-fans', to: '/artist/fans', label: 'Fans', icon: MessageSquare },
+								{ key: 'artist-settings', to: '/artist/settings', label: 'Artist Settings', icon: Settings },
+							];
+							artistLinks.forEach(({ key, to, label, icon: Icon }) => {
+								navItems.push(
+									<Link
+										key={key}
+										to={to}
+										className={cn(
+											buttonVariants({
+												variant: "ghost",
+												className: "w-full justify-start text-white hover:bg-zinc-800",
+											})
+										)}
+									>
+										<Icon className='mr-2 size-5' />
+										<span className='hidden md:inline'>{label}</span>
+									</Link>
+								);
+							});
+						}
+
+						// Downloads should be 7th
 							navItems.push(
 								<Link
 									key="downloads"
