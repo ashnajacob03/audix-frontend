@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { useCustomAuth } from './AuthContext';
+import listeningTimeTracker from '../services/listeningTimeTracker';
+import adScheduler from '../services/adScheduler';
+import { type AdConfig } from '../types/adTypes';
 
 interface Song {
   _id: string;
@@ -19,15 +22,17 @@ interface AudioPlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
   isAdPlaying: boolean;
+  currentAd: AdConfig | null;
   currentTime: number;
   duration: number;
   volume: number;
   queue: Song[];
   currentIndex: number;
+  queueSource: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual';
   
   // Playback controls
   playSong: (song: Song) => void;
-  playQueue: (songs: Song[], startIndex?: number) => void;
+  playQueue: (songs: Song[], startIndex?: number, source?: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual') => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -65,6 +70,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAdPlaying, setIsAdPlaying] = useState(false);
+  const [currentAd, setCurrentAd] = useState<AdConfig | null>(null);
   const [pendingSongAfterAd, setPendingSongAfterAd] = useState<Song | null>(null);
   const [adAudioDone, setAdAudioDone] = useState(false);
   const [adTimerDone, setAdTimerDone] = useState(false);
@@ -79,6 +85,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const [volume, setVolume] = useState(1);
   const [queue, setQueue] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [queueSource, setQueueSource] = useState<'liked' | 'playlist' | 'search' | 'recommendations' | 'manual'>('manual');
 
   // Initialize audio element
   useEffect(() => {
@@ -135,6 +142,13 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
 
     const handleError = (e: Event) => {
       console.error('Audio playback error:', e);
+      const target = e.target as HTMLAudioElement;
+      console.error('Audio error details:', {
+        error: target.error,
+        networkState: target.networkState,
+        readyState: target.readyState,
+        src: target.src
+      });
       setIsPlaying(false);
     };
 
@@ -156,6 +170,31 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   useEffect(() => { pendingSongAfterAdRef.current = pendingSongAfterAd; }, [pendingSongAfterAd]);
   useEffect(() => { adAudioDoneRef.current = adAudioDone; }, [adAudioDone]);
   useEffect(() => { adTimerDoneRef.current = adTimerDone; }, [adTimerDone]);
+
+  // Initialize ad scheduler
+  useEffect(() => {
+    // Subscribe to ad scheduler updates
+    const unsubscribeAdScheduler = adScheduler.subscribe((ad) => {
+      setCurrentAd(ad);
+    });
+
+    // Initialize tracking
+    listeningTimeTracker.startTracking();
+
+    return () => {
+      unsubscribeAdScheduler();
+      listeningTimeTracker.stopTracking();
+    };
+  }, []);
+
+  // Update listening time when playing state changes
+  useEffect(() => {
+    if (isPlaying) {
+      listeningTimeTracker.resumeTracking();
+    } else {
+      listeningTimeTracker.pauseTracking();
+    }
+  }, [isPlaying]);
 
   // Internal helper to attempt to play a list of URLs on the shared audio element
   const attemptPlayUrls = useCallback(async (urls: string[]) => {
@@ -259,139 +298,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     }
   }, [attemptPlayUrls]);
 
-  // Play a single song (with pre-roll ad for free users)
-  const playSong = useCallback(async (song: Song) => {
-    if (!audioRef.current) return;
-    const isPremium = !!user && (user.accountType === 'premium');
-    const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
-    const shouldPlayAd = isBlobSource ? false : !isPremium; // never gate offline blob playback with ads
-
-    if (shouldPlayAd) {
-      try {
-        const adUrlEnv = (import.meta as any).env?.VITE_AD_AUDIO_URL as string | undefined;
-        const adUrlFallback = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-        const adUrl = adUrlEnv || adUrlFallback;
-
-        // Reset ad state and start 10s timer for the overlay
-        if (adTimerRef.current) {
-          clearTimeout(adTimerRef.current);
-          adTimerRef.current = null;
-        }
-        setAdAudioDone(false);
-        setAdTimerDone(false);
-        setIsAdPlaying(true);
-        setPendingSongAfterAd(song);
-        setIsPlaying(false);
-        setCurrentTime(0);
-        adTimerRef.current = window.setTimeout(() => {
-          setAdTimerDone(true);
-          adTimerDoneRef.current = true;
-          // After 10s, ALWAYS dismiss overlay. If a song is pending, start it.
-          const songToPlayNow = pendingSongAfterAdRef.current || null;
-          setIsAdPlaying(false);
-          setPendingSongAfterAd(null);
-          setAdAudioDone(false);
-          setAdTimerDone(false);
-          isAdPlayingRef.current = false;
-          pendingSongAfterAdRef.current = null;
-          adAudioDoneRef.current = false;
-          adTimerDoneRef.current = false;
-          if (audioRef.current) {
-            try { audioRef.current.pause(); } catch {}
-          }
-          if (adTimerRef.current) {
-            clearTimeout(adTimerRef.current);
-            adTimerRef.current = null;
-          }
-          if (songToPlayNow) {
-            playSongCore(songToPlayNow).catch(err => {
-              console.error('Failed to start song after ad timer:', err);
-              next();
-            });
-          }
-        }, 10000);
-        // Start playing the ad; when it ends, handleEnded will trigger song playback
-        await attemptPlayUrls([adUrl]);
-        return;
-      } catch (e) {
-        console.warn('Ad failed to play, proceeding to song directly:', e);
-        // Keep overlay for the remainder of 10s even if audio failed
-        setAdAudioDone(true);
-        adAudioDoneRef.current = true;
-        if (!adTimerRef.current) {
-          adTimerRef.current = window.setTimeout(() => {
-            setAdTimerDone(true);
-            adTimerDoneRef.current = true;
-            if (isAdPlayingRef.current && pendingSongAfterAdRef.current) {
-              const songToPlayNow = pendingSongAfterAdRef.current;
-              setIsAdPlaying(false);
-              setPendingSongAfterAd(null);
-              setAdAudioDone(false);
-              setAdTimerDone(false);
-              isAdPlayingRef.current = false;
-              pendingSongAfterAdRef.current = null;
-              adAudioDoneRef.current = false;
-              adTimerDoneRef.current = false;
-              if (adTimerRef.current) {
-                clearTimeout(adTimerRef.current);
-                adTimerRef.current = null;
-              }
-              playSongCore(songToPlayNow).catch(err => {
-                console.error('Failed to start song after failed ad:', err);
-                next();
-              });
-            }
-          }, 10000);
-        }
-        return;
-      }
-    }
-
-    await playSongCore(song);
-  }, [user, attemptPlayUrls, playSongCore]);
-
-  // Play a queue of songs
-  const playQueue = useCallback(async (songs: Song[], startIndex = 0) => {
-    if (songs.length === 0) return;
-    
-    setQueue(songs);
-    setCurrentIndex(startIndex);
-    
-    const songToPlay = songs[startIndex];
-    await playSong(songToPlay);
-  }, [playSong]);
-
-  // Pause playback
-  const pause = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, []);
-
-  // Resume playback
-  const resume = useCallback(async () => {
-    if (audioRef.current && currentSong) {
-      try {
-        await audioRef.current.play();
-        setIsPlaying(true);
-      } catch (error) {
-        console.error('Failed to resume playback:', error);
-      }
-    }
-  }, [currentSong]);
-
-  // Stop playback
-  const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(false);
-      setCurrentTime(0);
-    }
-  }, []);
-
-  // Next song
+  // Next song function (defined before playSong to avoid circular dependency)
   const next = useCallback(async () => {
     if (currentIndex < queue.length - 1) {
       const nextIndex = currentIndex + 1;
@@ -406,7 +313,20 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       }
     }
 
-    // At end of queue: fetch a recommendation and continue
+    // At end of queue: handle based on queue source
+    if (queueSource === 'liked' && queue.length > 0) {
+      // For liked songs, loop back to the beginning
+      try {
+        const firstSong = queue[0];
+        setCurrentIndex(0);
+        await playSong(firstSong);
+        return;
+      } catch (loopErr) {
+        console.error('Liked songs loop failed:', loopErr);
+      }
+    }
+
+    // For other queue sources, fetch recommendations and continue
     try {
       const existingIds = new Set(queue.map(s => s._id));
       // Only fetch recommendations if user is authenticated
@@ -492,7 +412,152 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       // If recommendations fail, just stop at the end of the queue
       // Don't throw error to prevent breaking the UI
     }
-  }, [currentIndex, queue, playSong, isAuthenticated]);
+  }, [currentIndex, queue, queueSource, isAuthenticated]);
+
+  // Play a single song (with time-based ads for free users and unauthenticated users)
+  const playSong = useCallback(async (song: Song) => {
+    if (!audioRef.current) return;
+    const isPremium = !!user && (user.accountType === 'premium');
+    const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
+    
+    // Check if we should play a time-based ad
+    // Show ads for: unauthenticated users, free users, but NOT premium users
+    const shouldPlayTimeBasedAd = isBlobSource ? false : !isPremium && adScheduler.shouldPlayAd();
+
+    if (shouldPlayTimeBasedAd) {
+      try {
+        const ad = await adScheduler.playNextAd();
+        if (ad) {
+          // Reset ad state and start timer for the overlay
+          if (adTimerRef.current) {
+            clearTimeout(adTimerRef.current);
+            adTimerRef.current = null;
+          }
+          setAdAudioDone(false);
+          setAdTimerDone(false);
+          setIsAdPlaying(true);
+          setPendingSongAfterAd(song);
+          setIsPlaying(false);
+          setCurrentTime(0);
+          
+          // Set timer based on ad duration
+          const adDurationMs = ad.duration * 1000;
+          adTimerRef.current = window.setTimeout(() => {
+            setAdTimerDone(true);
+            adTimerDoneRef.current = true;
+            // After ad duration, dismiss overlay and play song
+            const songToPlayNow = pendingSongAfterAdRef.current || null;
+            setIsAdPlaying(false);
+            setPendingSongAfterAd(null);
+            setAdAudioDone(false);
+            setAdTimerDone(false);
+            isAdPlayingRef.current = false;
+            pendingSongAfterAdRef.current = null;
+            adAudioDoneRef.current = false;
+            adTimerDoneRef.current = false;
+            if (audioRef.current) {
+              try { audioRef.current.pause(); } catch {}
+            }
+            if (adTimerRef.current) {
+              clearTimeout(adTimerRef.current);
+              adTimerRef.current = null;
+            }
+            // Mark ad as finished
+            adScheduler.finishCurrentAd();
+            if (songToPlayNow) {
+              playSongCore(songToPlayNow).catch(err => {
+                console.error('Failed to start song after ad timer:', err);
+                next();
+              });
+            }
+          }, adDurationMs);
+          
+          // Start playing the ad; when it ends, handleEnded will trigger song playback
+          await attemptPlayUrls([ad.audioUrl]);
+          return;
+        }
+      } catch (e) {
+        console.warn('Time-based ad failed to play, proceeding to song directly:', e);
+        // Mark ad as finished even if it failed
+        adScheduler.finishCurrentAd();
+        // Keep overlay for the remainder of ad duration even if audio failed
+        setAdAudioDone(true);
+        adAudioDoneRef.current = true;
+        if (!adTimerRef.current) {
+          const adDurationMs = 10000; // Default 10 seconds
+          adTimerRef.current = window.setTimeout(() => {
+            setAdTimerDone(true);
+            adTimerDoneRef.current = true;
+            if (isAdPlayingRef.current && pendingSongAfterAdRef.current) {
+              const songToPlayNow = pendingSongAfterAdRef.current;
+              setIsAdPlaying(false);
+              setPendingSongAfterAd(null);
+              setAdAudioDone(false);
+              setAdTimerDone(false);
+              isAdPlayingRef.current = false;
+              pendingSongAfterAdRef.current = null;
+              adAudioDoneRef.current = false;
+              adTimerDoneRef.current = false;
+              if (adTimerRef.current) {
+                clearTimeout(adTimerRef.current);
+                adTimerRef.current = null;
+              }
+              playSongCore(songToPlayNow).catch(err => {
+                console.error('Failed to start song after failed ad:', err);
+                next();
+              });
+            }
+          }, adDurationMs);
+        }
+        return;
+      }
+    }
+
+    await playSongCore(song);
+  }, [user, attemptPlayUrls, playSongCore, next]);
+
+  // Play a queue of songs
+  const playQueue = useCallback(async (songs: Song[], startIndex = 0, source: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual' = 'manual') => {
+    if (songs.length === 0) return;
+    
+    setQueue(songs);
+    setCurrentIndex(startIndex);
+    setQueueSource(source);
+    
+    const songToPlay = songs[startIndex];
+    await playSong(songToPlay);
+  }, [playSong]);
+
+  // Pause playback
+  const pause = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  // Resume playback
+  const resume = useCallback(async () => {
+    if (audioRef.current && currentSong) {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error('Failed to resume playback:', error);
+      }
+    }
+  }, [currentSong]);
+
+  // Stop playback
+  const stop = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setCurrentTime(0);
+    }
+  }, []);
+
 
   // Previous song (professional behavior: if >3s into track, restart; else go to previous)
   const previous = useCallback(async () => {
@@ -584,17 +649,21 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       audioRef.current.pause();
     }
     setIsPlaying(false);
+    // Mark ad as finished in scheduler
+    adScheduler.finishCurrentAd();
   }, []);
 
   const value: AudioPlayerContextType = {
     currentSong,
     isPlaying,
     isAdPlaying,
+    currentAd,
     currentTime,
     duration,
     volume,
     queue,
     currentIndex,
+    queueSource,
     playSong,
     playQueue,
     pause,

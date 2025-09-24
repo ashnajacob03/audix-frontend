@@ -408,11 +408,21 @@ class ApiService {
   }
 
   // Subscription endpoints
-  async updateSubscription({ accountType, subscriptionExpires = null }) {
+  async updateSubscription({ accountType, subscriptionExpires = null, plan, amount, currency, paymentId }) {
     return this.request('/user/subscription', {
       method: 'PUT',
-      body: { accountType, subscriptionExpires },
+      body: { accountType, subscriptionExpires, plan, amount, currency, paymentId },
     });
+  }
+
+  // Invoices endpoints
+  async getInvoices() {
+    return this.request('/invoices');
+  }
+
+  async downloadInvoicePdf(invoiceId) {
+    const blob = await this.requestBlob(`/invoices/${invoiceId}/pdf`);
+    return blob;
   }
 
   // Social endpoints
@@ -448,6 +458,12 @@ class ApiService {
   // Get song by ID
   async getSong(id) {
     return this.get(`/music/songs/${id}`);
+  }
+
+  // Get lyrics for a song by id
+  async getSongLyrics(id, options = {}) {
+    // Backend endpoint expected at /music/songs/:id/lyrics
+    return this.get(`/music/songs/${id}/lyrics`, options);
   }
 
   // Search songs
@@ -537,6 +553,16 @@ class ApiService {
     return this.post(`/music/songs/${songId}/like`, undefined, options);
   }
 
+  // Dislike song
+  async dislikeSong(songId, options = {}) {
+    return this.post(`/music/songs/${songId}/dislike`, undefined, options);
+  }
+
+  // Get user's interaction with a song
+  async getSongInteraction(songId, options = {}) {
+    return this.get(`/music/songs/${songId}/interaction`, options);
+  }
+
   // Get user's liked songs
   async getLikedSongs(options = {}) {
     return this.get('/music/liked-songs', options);
@@ -545,6 +571,28 @@ class ApiService {
   // Get user's recently played songs
   async getRecentSongs(options = {}) {
     return this.get('/music/recent', options);
+  }
+
+  // ===== BACKGROUND EXTRACTION API METHODS =====
+
+  // Extract background music from a song
+  async extractBackground(songId, options = {}) {
+    return this.post(`/music/songs/${songId}/extract-background`, undefined, options);
+  }
+
+  // Get background extraction status
+  async getBackgroundStatus(songId, options = {}) {
+    return this.get(`/music/songs/${songId}/background-status`, options);
+  }
+
+  // Stream extracted background music
+  async getBackgroundStream(songId, options = {}) {
+    return this.get(`/music/songs/${songId}/background-stream`, options);
+  }
+
+  // Delete extracted background music
+  async deleteBackground(songId, options = {}) {
+    return this.delete(`/music/songs/${songId}/background`, options);
   }
 
   // Utility methods

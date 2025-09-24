@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import api from '@/services/api.js';
 import FallbackImage from '@/components/FallbackImage';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Play, Pause, ExternalLink } from 'lucide-react';
+import { useCustomAuth } from '@/contexts/AuthContext';
+import { Play, Pause, ExternalLink, Music } from 'lucide-react';
+import BackgroundExtractionModal from '@/components/BackgroundExtractionModal';
 import toast from 'react-hot-toast';
 
 interface SongData {
@@ -21,7 +23,9 @@ const Song = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
+  const { isAuthenticated } = useCustomAuth();
   const [autoplayAttempted, setAutoplayAttempted] = useState(false);
+  const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchSong = async () => {
@@ -113,16 +117,33 @@ const Song = () => {
           <div className="flex-1 p-5">
             <h1 className="text-white text-2xl font-semibold mb-1 truncate">{song.title}</h1>
             <div className="text-zinc-400 mb-4">{song.artist}</div>
-            <button
-              onClick={handlePlay}
-              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-400 text-black font-semibold px-4 py-2 rounded-full"
-            >
-              {isThisPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />} 
-              {isThisPlaying ? 'Pause' : 'Play'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handlePlay}
+                className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-400 text-black font-semibold px-4 py-2 rounded-full"
+              >
+                {isThisPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />} 
+                {isThisPlaying ? 'Pause' : 'Play'}
+              </button>
+              {isAuthenticated && (
+                <button
+                  onClick={() => setIsBackgroundModalOpen(true)}
+                  className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white font-semibold px-4 py-2 rounded-full"
+                >
+                  <Music className="w-4 h-4" />
+                  Extract Background
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <BackgroundExtractionModal
+        isOpen={isBackgroundModalOpen}
+        onClose={() => setIsBackgroundModalOpen(false)}
+        song={song}
+      />
     </div>
   );
 };

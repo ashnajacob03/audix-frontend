@@ -1,26 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import { useCustomAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { type AdConfig } from '@/types/adTypes';
 
 interface AdOverlayProps {
   seconds?: number;
   videoSrc?: string; // optional custom video
+  ad?: AdConfig; // current ad being played
 }
 
-const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc }) => {
+const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc, ad }) => {
   const navigate = useNavigate();
   const [remaining, setRemaining] = useState<number>(seconds);
-  const { dismissAd } = useAudioPlayer();
+  const { dismissAd, currentAd } = useAudioPlayer();
+  const { isAuthenticated, user } = useCustomAuth();
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  
+  // Use the current ad from context if not provided as prop
+  const currentAdData = ad || currentAd;
+  
+  // Determine user type for messaging
+  const isPremium = !!user && (user.accountType === 'premium');
+  const isFreeUser = isAuthenticated && !isPremium;
+  const isUnauthenticated = !isAuthenticated;
 
-  // Basic, safe external fallback video if none provided (royalty-free promo vibe)
+  // Use ad video if available, otherwise fallback
   const fallbackVideo = 'https://cdn.coverr.co/videos/coverr-young-woman-listening-to-music-while-walking-6078/1080p.mp4';
-  const resolvedVideo = videoSrc ?? fallbackVideo;
+  const resolvedVideo = videoSrc || currentAdData?.videoUrl || fallbackVideo;
 
   const carouselImages = [
-    '/audix.png'
+    currentAdData?.imageUrl || '/audix.png'
   ];
 
   useEffect(() => {
@@ -53,7 +65,11 @@ const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc }) => {
 
   const goPremium = () => {
     dismissAd();
-    navigate('/premium');
+    if (isUnauthenticated) {
+      navigate('/signup');
+    } else {
+      navigate('/premium');
+    }
   };
 
   const progress = ((seconds - remaining) / seconds) * 100;
@@ -163,10 +179,14 @@ const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc }) => {
 
                 <div className="mb-6">
                   <h2 className="text-2xl md:text-3xl font-semibold mb-2">
-                    Enjoy uninterrupted music with Premium
+                    {currentAdData?.title || (isUnauthenticated ? 'Join Audix for Premium Experience' : 'Enjoy uninterrupted music with Premium')}
                   </h2>
                   <p className="text-zinc-300">
-                    Upgrade to remove ads, get unlimited skips, and listen in high quality.
+                    {currentAdData?.description || (
+                      isUnauthenticated 
+                        ? 'Sign up for free to enjoy unlimited music, or upgrade to Premium for an ad-free experience.'
+                        : 'Upgrade to remove ads, get unlimited skips, and listen in high quality.'
+                    )}
                   </p>
                 </div>
 
@@ -177,10 +197,15 @@ const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc }) => {
                     onClick={goPremium}
                     className="px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-colors shadow-lg shadow-emerald-500/20"
                   >
-                    Upgrade to Premium
+                    {isUnauthenticated ? 'Sign Up Free' : 'Upgrade to Premium'}
                   </motion.button>
                   <div className="text-xs text-zinc-400">
                     Your song will start right after this short ad.
+                    {isUnauthenticated && (
+                      <div className="mt-1">
+                        Sign up to enjoy unlimited music with fewer ads!
+                      </div>
+                    )}
                   </div>
                 </div>
 

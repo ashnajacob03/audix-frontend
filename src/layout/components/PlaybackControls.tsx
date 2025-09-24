@@ -15,7 +15,10 @@ import {
   Volume1,
   VolumeX,
   Heart,
+  ThumbsDown,
   ListPlus,
+  ChevronDown,
+  MoreVertical,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -30,6 +33,13 @@ import { useCustomAuth } from "@/contexts/AuthContext";
 import { SkipLimitModal } from "@/components/SkipLimitModal";
 import api from "@/services/api";
 import { hasOfflineSong, saveOfflineSong } from "@/utils/offline";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 // Using a custom lightweight modal below instead of dropdown for a more professional UX
 
 const formatTime = (time: number) => {
@@ -60,9 +70,13 @@ export const PlaybackControls = () => {
   } = useAudioPlayer();
 
   const [isLiked, setIsLiked] = useState(false);
+  const [isDisliked, setIsDisliked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [dislikeCount, setDislikeCount] = useState(0);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  const [dislikeBusy, setDislikeBusy] = useState(false);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
@@ -70,25 +84,37 @@ export const PlaybackControls = () => {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [isSavedOffline, setIsSavedOffline] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [loadingLyrics, setLoadingLyrics] = useState(false);
+  const [extractingInBackground, setExtractingInBackground] = useState(false);
+  const [showExtractToast, setShowExtractToast] = useState(false);
+  const [extractToastText, setExtractToastText] = useState('');
+  const [extractProgress, setExtractProgress] = useState(0);
 
-  // Sync liked state when song changes
+  // Sync liked/disliked state when song changes
   useEffect(() => {
     let cancelled = false;
-    const loadLiked = async () => {
+    const loadInteraction = async () => {
       if (!currentSong) return;
       if (!isAuthenticated) return;
       try {
-        const liked = await api.getLikedSongs({ suppressAuthRedirect: true } as any);
+        const interaction = await api.getSongInteraction(currentSong._id, { suppressAuthRedirect: true } as any);
         if (!cancelled) {
-          const found = Array.isArray(liked) && liked.some((s: any) => s && (s._id === currentSong._id));
-          setIsLiked(!!found);
+          setIsLiked(interaction.interaction === 'like');
+          setIsDisliked(interaction.interaction === 'dislike');
+          setLikeCount(interaction.likeCount || 0);
+          setDislikeCount(interaction.dislikeCount || 0);
         }
       } catch (e) {
         // ignore
       }
     };
     setIsLiked(false);
-    loadLiked();
+    setIsDisliked(false);
+    setLikeCount(0);
+    setDislikeCount(0);
+    loadInteraction();
     return () => {
       cancelled = true;
     };
@@ -113,6 +139,29 @@ export const PlaybackControls = () => {
     return () => { cancelled = true; };
   }, [currentSong?._id]);
 
+  // Load lyrics when opened or song changes
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!currentSong || !showLyrics) return;
+      setLoadingLyrics(true);
+      try {
+        const resp = await api.getSongLyrics(currentSong._id, { suppressAuthRedirect: true } as any);
+        const data = (resp && (resp.data || resp)) || {};
+        if (!cancelled) {
+          const text = typeof data === 'string' ? data : (data.lyrics || data.text || null);
+          setLyrics(text);
+        }
+      } catch {
+        if (!cancelled) setLyrics(null);
+      } finally {
+        if (!cancelled) setLoadingLyrics(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [currentSong?._id, showLyrics]);
+
   const handleToggleLike = async () => {
     if (!currentSong || likeBusy) return;
     if (!isAuthenticated) {
@@ -122,12 +171,34 @@ export const PlaybackControls = () => {
     setLikeBusy(true);
     try {
       const resp = await api.likeSong(currentSong._id, { suppressAuthRedirect: true } as any);
-      const newState = typeof resp?.isLiked === 'boolean' ? resp.isLiked : !isLiked;
-      setIsLiked(newState);
+      setIsLiked(resp.interaction === 'like');
+      setIsDisliked(resp.interaction === 'dislike');
+      setLikeCount(resp.likeCount || 0);
+      setDislikeCount(resp.dislikeCount || 0);
     } catch (e) {
       // optimistic revert
     } finally {
       setLikeBusy(false);
+    }
+  };
+
+  const handleToggleDislike = async () => {
+    if (!currentSong || dislikeBusy) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setDislikeBusy(true);
+    try {
+      const resp = await api.dislikeSong(currentSong._id, { suppressAuthRedirect: true } as any);
+      setIsLiked(resp.interaction === 'like');
+      setIsDisliked(resp.interaction === 'dislike');
+      setLikeCount(resp.likeCount || 0);
+      setDislikeCount(resp.dislikeCount || 0);
+    } catch (e) {
+      // optimistic revert
+    } finally {
+      setDislikeBusy(false);
     }
   };
   const handleDownload = async () => {
@@ -191,6 +262,73 @@ export const PlaybackControls = () => {
     } finally {
       setDownloading(false);
       setDownloadProgress(0);
+    }
+  };
+
+  // Background extraction saves the audio offline silently without navigation
+  const handleBackgroundExtraction = async () => {
+    if (!currentSong) return;
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    if (extractingInBackground || isSavedOffline) return;
+    setExtractingInBackground(true);
+    setShowExtractToast(true);
+    setExtractToastText('Extracting background…');
+    setExtractProgress(0);
+    try {
+      // Try dedicated download endpoint, fallback to stream
+      let blob: Blob;
+      try {
+        blob = await api.requestBlobWithProgress(`/music/songs/${currentSong._id}/download`, { method: 'GET', onProgress: (p: number) => setExtractProgress(Math.round(p * 100)) });
+      } catch (primaryErr: any) {
+        try {
+          blob = await api.requestBlobWithProgress(`/music/songs/${currentSong._id}/stream`, { method: 'GET', onProgress: (p: number) => setExtractProgress(Math.round(p * 100)) });
+        } catch (streamErr: any) {
+          throw primaryErr || streamErr;
+        }
+      }
+
+      // Save offline for availability in app
+      await saveOfflineSong({
+        id: currentSong._id,
+        title: currentSong.title,
+        artist: currentSong.artist,
+        coverUrl: currentSong.imageUrl,
+        durationMs: (duration || 0) * 1000,
+        mimeType: blob.type || 'audio/mpeg',
+        downloadedAt: Date.now(),
+        blob,
+      });
+      setIsSavedOffline(true);
+      try { window.dispatchEvent(new CustomEvent('offline:saved', { detail: { id: currentSong._id } })); } catch {}
+
+      // Also trigger a browser download for the user
+      const safeTitle = (currentSong.title || 'track').replace(/[^a-z0-9_\-]+/gi, '_');
+      const safeArtist = (currentSong.artist || 'artist').replace(/[^a-z0-9_\-]+/gi, '_');
+      const filename = `${safeTitle}-${safeArtist}.mp3`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+
+      setExtractToastText('Extraction completed. Download started.');
+      setExtractProgress(100);
+      setTimeout(() => setShowExtractToast(false), 2000);
+    } catch (e: any) {
+      // Silent failure notice for background extraction
+      console.warn('Background extraction failed', e);
+      setExtractToastText('Extraction failed');
+      setTimeout(() => setShowExtractToast(false), 2000);
+    } finally {
+      setExtractingInBackground(false);
     }
   };
 
@@ -393,8 +531,9 @@ export const PlaybackControls = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className={`p-2 rounded-full transition-colors ${isLiked ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'} hover:bg-zinc-800/30`}
+                      className={`p-2 rounded-full transition-colors ${isLiked ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'} hover:bg-zinc-800/30 ${likeBusy ? 'opacity-50' : ''}`}
                       onClick={handleToggleLike}
+                      disabled={likeBusy}
                       aria-label={isLiked ? 'Unlike' : 'Like'}
                     >
                       <Heart className={`h-5 w-5 ${isLiked ? 'fill-red-500' : ''}`} />
@@ -402,6 +541,27 @@ export const PlaybackControls = () => {
                   </TooltipTrigger>
                   <TooltipContent side="top">
                     <p>{isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}</p>
+                    {likeCount > 0 && <p className="text-xs text-zinc-300">{likeCount} likes</p>}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              {/* Dislike button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={`p-2 rounded-full transition-colors ${isDisliked ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'} hover:bg-zinc-800/30 ${dislikeBusy ? 'opacity-50' : ''}`}
+                      onClick={handleToggleDislike}
+                      disabled={dislikeBusy}
+                      aria-label={isDisliked ? 'Undislike' : 'Dislike'}
+                    >
+                      <ThumbsDown className={`h-5 w-5 ${isDisliked ? 'fill-red-500' : ''}`} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{isDisliked ? 'Remove dislike' : 'Dislike song'}</p>
+                    {dislikeCount > 0 && <p className="text-xs text-zinc-300">{dislikeCount} dislikes</p>}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -445,6 +605,18 @@ export const PlaybackControls = () => {
               >
                 <ListPlus className="h-5 w-5" />
               </button>
+
+              {/* Three dots menu beside playlist button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800/30 rounded-full transition-colors" aria-label="More actions">
+                  <MoreVertical className="h-5 w-5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-[200px]">
+                  <DropdownMenuItem disabled={extractingInBackground || isSavedOffline} onClick={handleBackgroundExtraction}>
+                    {isSavedOffline ? 'Already saved' : (extractingInBackground ? 'Extracting…' : 'Extract background')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
@@ -468,6 +640,16 @@ export const PlaybackControls = () => {
           </div>
 
           <div className="flex items-center gap-4 sm:gap-6">
+            {/* Lyrics toggle for desktop: subtle down arrow, like Spotify */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className={`hidden sm:inline-flex text-zinc-400 hover:text-white ${showLyrics ? 'rotate-180 text-white' : ''} transition-transform`}
+              onClick={() => setShowLyrics(v => !v)}
+              aria-label="Toggle lyrics"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
             <Button
               size="icon"
               variant="ghost"
@@ -559,6 +741,50 @@ export const PlaybackControls = () => {
       </div>
       </div>
       
+      {/* Compact Lyrics Card under playback controls */}
+      {currentSong && (
+        <div className={`fixed inset-x-0 z-40 flex justify-center pointer-events-none ${showLyrics ? 'bottom-[120px]' : 'bottom-[80px] opacity-0'} transition-all duration-300`}>
+          <div className={`pointer-events-auto w-[360px] sm:w-[420px] max-w-[92%] rounded-2xl shadow-2xl border border-white/10 bg-amber-800/90 text-black backdrop-blur ${showLyrics ? 'scale-100' : 'scale-95'} transition-transform`}>
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <div className="text-[11px] font-bold tracking-widest text-black/80">LYRICS</div>
+              <button className="p-1.5 text-black/70 hover:text-black" onClick={() => setShowLyrics(false)} aria-label="Close lyrics">
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-4 pb-4 h-[220px] sm:h-[260px]">
+              <ScrollArea className="h-full pr-2">
+                {loadingLyrics ? (
+                  <div className="text-sm text-black/80">Loading lyrics…</div>
+                ) : lyrics ? (
+                  <div className="space-y-3">
+                    {lyrics.split(/\n+/).map((line, idx) => (
+                      line.trim().length === 0 ? (
+                        <div key={`sp-${idx}`} className="h-3" />
+                      ) : (
+                        <div key={idx} className="text-lg font-semibold leading-7">{line}</div>
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-black/80">Lyrics not available.</div>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Small top-right toast for extraction progress */}
+      {showExtractToast && (
+        <div className="fixed top-4 right-4 z-50 bg-zinc-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl px-4 py-3 w-[280px] text-sm text-zinc-200">
+          <div className="font-medium mb-1">Extracting background</div>
+          <div className="text-xs text-zinc-400 mb-2">{extractToastText}</div>
+          <div className="h-1.5 bg-zinc-800 rounded overflow-hidden">
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${extractProgress}%` }} />
+          </div>
+        </div>
+      )}
+
       {/* Skip Limit Modal */}
       <SkipLimitModal
         isOpen={showSkipLimitModal}

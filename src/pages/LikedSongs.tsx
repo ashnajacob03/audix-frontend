@@ -18,7 +18,7 @@ interface LikedSongItem {
 }
 
 const LikedSongs = () => {
-	const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
+	const { playSong, playQueue, currentSong, isPlaying, pause, resume } = useAudioPlayer();
   const { isAuthenticated } = useCustomAuth();
 	const [songs, setSongs] = useState<LikedSongItem[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -72,7 +72,15 @@ const LikedSongs = () => {
 			if (isPlaying) pause(); else resume();
 			return;
 		}
-		playSong(song as any);
+		// Find the index of the clicked song in the liked songs list
+		const songIndex = songs.findIndex(s => s._id === song._id);
+		if (songIndex !== -1) {
+			// Play the entire liked songs queue starting from the clicked song
+			playQueue(songs as any, songIndex, 'liked');
+		} else {
+			// Fallback to single song play if not found in list
+			playSong(song as any);
+		}
 	};
 
 	return (

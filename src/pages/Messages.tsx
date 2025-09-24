@@ -239,7 +239,17 @@ const Messages = () => {
     };
 
     fetchConversations();
-  }, [user]);
+    
+    // Also refresh conversations when socket connects
+    if (isConnected) {
+      fetchConversations();
+    }
+    
+    // Set up periodic refresh of conversations every 30 seconds
+    const interval = setInterval(fetchConversations, 30000);
+    
+    return () => clearInterval(interval);
+  }, [user, isConnected]);
 
   // Handle URL parameters
   useEffect(() => {
@@ -267,7 +277,58 @@ const Messages = () => {
         
         const data = await response.json();
         if (data.success) {
-          setMessages(data.data.messages || []);
+          const fetchedMessages: Message[] = data.data.messages || [];
+          setMessages(fetchedMessages);
+
+          // Update conversations list with latest message preview for this friend
+          if (fetchedMessages.length > 0) {
+            const latest = fetchedMessages[fetchedMessages.length - 1];
+            
+            setConversations(prev => {
+              const updated = [...prev];
+              const convIndex = updated.findIndex(c => c.participant.id === selectedChat);
+
+              const lastMessage = {
+                id: latest.id,
+                content: latest.content,
+                sender: latest.senderName,
+                senderId: latest.senderId,
+                timestamp: latest.timestamp,
+                isRead: latest.isRead,
+              };
+
+              if (convIndex !== -1) {
+                updated[convIndex] = {
+                  ...updated[convIndex],
+                  lastMessage,
+                  lastMessageAt: latest.timestamp,
+                  updatedAt: latest.timestamp,
+                };
+              } else if (selectedFriend) {
+                // If there is no conversation entry yet, create a minimal one
+                updated.unshift({
+                  id: latest.conversationId,
+                  conversationId: latest.conversationId,
+                  participant: {
+                    id: selectedFriend.id,
+                    name: selectedFriend.name,
+                    firstName: selectedFriend.firstName,
+                    lastName: selectedFriend.lastName,
+                    avatar: selectedFriend.avatar || '',
+                    online: !!selectedFriend.online,
+                    lastSeen: selectedFriend.lastSeen || '',
+                  },
+                  lastMessage,
+                  unreadCount: 0,
+                  lastMessageAt: latest.timestamp,
+                  updatedAt: latest.timestamp,
+                });
+              }
+
+              return dedupeConversationsByParticipant(updated);
+            });
+          }
+
           // Mark messages as read
           await markMessagesAsRead(selectedChat);
         }
@@ -286,6 +347,7 @@ const Messages = () => {
     if (!socket) return;
 
     const handleNewMessage = (message: Message) => {
+      // Only add to messages if it's for the currently selected chat
       if (message.conversationId === getConversationId(user?.id || '', selectedChat || '')) {
         setMessages(prev => {
           // Check if message already exists (to avoid duplicates)
@@ -298,7 +360,7 @@ const Messages = () => {
         scrollToBottom();
       }
       
-      // Update conversations list
+      // ALWAYS update conversations list for ALL incoming messages
       setConversations(prev => {
         const updated = [...prev];
         const currentUserId = user?.id || '';
@@ -315,6 +377,7 @@ const Messages = () => {
             isRead: message.isRead
           };
           updated[convIndex].lastMessageAt = message.timestamp;
+          updated[convIndex].updatedAt = message.timestamp;
         } else {
           // Create minimal conversation if none exists yet
           const friend = friends.find(f => f.id === otherUserId);
@@ -339,7 +402,7 @@ const Messages = () => {
               timestamp: message.timestamp,
               isRead: message.isRead
             },
-            unreadCount: 0,
+            unreadCount: message.senderId !== currentUserId ? 1 : 0, // Increment unread count for received messages
             lastMessageAt: message.timestamp,
             updatedAt: message.timestamp
           });

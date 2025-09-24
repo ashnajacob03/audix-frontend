@@ -25,10 +25,10 @@ const Premium = () => {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const navigate = useNavigate();
 
-  const persistSubscription = async (): Promise<void> => {
+  const persistSubscription = async (payload?: { plan?: 'monthly' | 'yearly'; amount?: number; currency?: string; paymentId?: string }): Promise<void> => {
     // Prefer API helper if available; fallback to direct fetch during HMR edge cases
     if (apiService && typeof (apiService as any).updateSubscription === 'function') {
-      await (apiService as any).updateSubscription({ accountType: 'premium', subscriptionExpires: null });
+      await (apiService as any).updateSubscription({ accountType: 'premium', subscriptionExpires: null, ...(payload || {}) });
       return;
     }
     let API_BASE_URL: string = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
@@ -51,7 +51,7 @@ const Premium = () => {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ accountType: 'premium', subscriptionExpires: null })
+      body: JSON.stringify({ accountType: 'premium', subscriptionExpires: null, ...(payload || {}) })
     });
     if (!resp.ok) {
       const data = await resp.json().catch(() => ({}));
@@ -190,7 +190,7 @@ const Premium = () => {
       // Simulate a successful payment: try to persist, then update local and redirect
       setTimeout(async () => {
         try {
-          await persistSubscription();
+          await persistSubscription({ plan, amount: PRICE_INR[plan], currency: 'INR', paymentId: 'simulated' });
           if (user) {
             const updated: any = { ...user, accountType: 'premium' };
             updateUser(updated);
@@ -223,7 +223,7 @@ const Premium = () => {
       image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Logo_placeholder.svg',
       handler: async (response: any) => {
         try {
-          await persistSubscription();
+          await persistSubscription({ plan, amount: PRICE_INR[plan], currency: 'INR', paymentId: response?.razorpay_payment_id });
           if (user) {
             const updated: any = { ...user, accountType: 'premium' };
             updateUser(updated);

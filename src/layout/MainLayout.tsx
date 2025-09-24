@@ -11,7 +11,7 @@ import { ChevronRight, ChevronLeft } from "lucide-react";
 
 const MainLayout = () => {
 	const [isMobile, setIsMobile] = useState(false);
-	const { currentSong, isAdPlaying } = useAudioPlayer();
+	const { currentSong, isAdPlaying, currentAd } = useAudioPlayer();
 
 	useEffect(() => {
 		const checkMobile = () => {
@@ -101,7 +101,7 @@ const MainLayout = () => {
 					<PlaybackControls />
 				</div>
 			)}
-			{isAdPlaying && <AdOverlay seconds={10} />}
+			{isAdPlaying && <AdOverlay seconds={currentAd?.duration || 10} ad={currentAd} />}
 		</div>
 	);
 };

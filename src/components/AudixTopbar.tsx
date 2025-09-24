@@ -155,7 +155,7 @@ const AudixTopbar = () => {
               <DropdownMenuSeparator className="bg-zinc-700" />
               
               <DropdownMenuItem asChild>
-                <Link to="/settings" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
+                <Link to="/settings-menu" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer">
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>

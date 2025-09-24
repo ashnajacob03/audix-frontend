@@ -90,6 +90,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 						const navItems: ReactElement[] = [];
 						navItems.push(
 							<Link
+								key="home"
 								to={"/"}
 								className={cn(
 									buttonVariants({
@@ -104,6 +105,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 						);
 						navItems.push(
 							<Link
+								key="search"
 								to={"/search"}
 								className={cn(
 									buttonVariants({
@@ -118,9 +120,11 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 						);
 
 						if (isAuthenticated) {
+							// Messages should be 3rd
 							navItems.push(
 								<Link
-									to={("/downloads")}
+									key="messages"
+									to={"/messages"}
 									className={cn(
 										buttonVariants({
 											variant: "ghost",
@@ -128,12 +132,14 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 										})
 									)}
 								>
-									<Download className='mr-2 size-5' />
-									<span className='hidden md:inline'>Downloads</span>
+									<MessageCircle className='mr-2 size-5' />
+									<span className='hidden md:inline'>Messages</span>
 								</Link>
 							);
+							// Followed by Liked, Activity, Artists
 							navItems.push(
 								<Link
+									key="liked"
 									to={"/liked"}
 									className={cn(
 										buttonVariants({
@@ -148,6 +154,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 							);
 							navItems.push(
 								<Link
+									key="profile"
 									to={"/profile"}
 									className={cn(
 										buttonVariants({
@@ -162,6 +169,7 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 							);
 							navItems.push(
 								<Link
+									key="artists"
 									to={"/artists"}
 									className={cn(
 										buttonVariants({
@@ -174,9 +182,11 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 									<span className='hidden md:inline'>Artists</span>
 								</Link>
 							);
+							// Downloads should be 7th
 							navItems.push(
 								<Link
-									to={"/messages"}
+									key="downloads"
+									to={("/downloads")}
 									className={cn(
 										buttonVariants({
 											variant: "ghost",
@@ -184,12 +194,13 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 										})
 									)}
 								>
-									<MessageCircle className='mr-2 size-5' />
-									<span className='hidden md:inline'>Messages</span>
+									<Download className='mr-2 size-5' />
+									<span className='hidden md:inline'>Downloads</span>
 								</Link>
 							);
 							navItems.push(
 								<Link
+									key="settings"
 									to={"/settings-menu"}
 									className={cn(
 										buttonVariants({

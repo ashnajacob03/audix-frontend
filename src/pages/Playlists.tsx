@@ -134,7 +134,7 @@ const Playlists = () => {
                                 }))
                             : [];
                           if (songs.length > 0) {
-                            playQueue(songs, 0);
+                            playQueue(songs, 0, 'playlist');
                           }
                         } catch (err) {
                           // no-op

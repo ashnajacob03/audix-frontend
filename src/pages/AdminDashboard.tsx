@@ -13,7 +13,7 @@ import {
   Activity,
   Crown,
   XCircle,
-  UserPlus,
+  UserPlus, 
   Clock,
   Zap,
   Globe,
@@ -166,7 +166,8 @@ const AdminDashboard = () => {
     isAdmin: boolean;
     joinedAt: string;
     lastLogin: string;
-    isActive: boolean;
+    isActive: boolean; // last seen activity indicator
+    isAccountActive?: boolean; // DB account status
   };
 
   const [recentUsers, setRecentUsers] = useState<AdminUserListItem[]>([]);

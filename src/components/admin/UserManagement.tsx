@@ -31,7 +31,8 @@ interface User {
   isAdmin: boolean;
   joinedAt: string;
   lastLogin: string;
-  isActive: boolean;
+  isActive: boolean; // recent activity indicator (last seen)
+  isAccountActive?: boolean; // actual account status from DB (soft delete flag)
 }
 
 const UserManagement = () => {
@@ -393,11 +394,18 @@ const UserManagement = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                          <span className={`text-sm font-medium ${user.isActive ? 'text-green-400' : 'text-red-400'}`}>
-                            {user.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-green-400' : 'bg-zinc-500'}`}></div>
+                            <span className={`text-sm ${user.isActive ? 'text-green-400' : 'text-zinc-400'}`}>
+                              {user.isActive ? 'Recently Active' : 'Idle'}
+                            </span>
+                          </div>
+                          {user.isAccountActive === false && (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">
+                              Deactivated
+                            </span>
+                          )}
                           {user.isAdmin && (
                             <Shield className="w-4 h-4 text-yellow-400" />
                           )}

@@ -39,7 +39,7 @@ const ArtistProfile: React.FC = () => {
       previewUrl: s.previewUrl,
       audioUrl: s.audioUrl,
       streamUrl: s.streamUrl,
-    })), 0);
+    })), 0, 'search');
   };
 
   const handleShuffle = () => {
@@ -54,7 +54,7 @@ const ArtistProfile: React.FC = () => {
       previewUrl: s.previewUrl,
       audioUrl: s.audioUrl,
       streamUrl: s.streamUrl,
-    })), 0);
+    })), 0, 'search');
   };
 
   const toggleFollow = async () => {
@@ -108,7 +108,7 @@ const ArtistProfile: React.FC = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {songs.map((s: any, idx: number) => (
-              <button key={s._id || idx} onClick={() => playQueue(songs as any, idx)} className="group text-left rounded-lg p-3 bg-zinc-900/50 border border-white/5 hover:border-white/10 hover:bg-zinc-900 transition-colors">
+              <button key={s._id || idx} onClick={() => playQueue(songs as any, idx, 'search')} className="group text-left rounded-lg p-3 bg-zinc-900/50 border border-white/5 hover:border-white/10 hover:bg-zinc-900 transition-colors">
                 <div className="aspect-square rounded-md overflow-hidden mb-2">
                   <FallbackImage src={s.imageUrl || ''} alt={s.title} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" fallbackSeed={s.title} />
                 </div>

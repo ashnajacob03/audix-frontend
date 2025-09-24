@@ -17,6 +17,7 @@ import Messages from './pages/Messages';
 import AdminDashboard from './pages/AdminDashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import PaymentInvoices from './pages/PaymentInvoices';
 import SettingsMenu from './pages/SettingsMenu';
 import Stats from './pages/Stats';
 import LikedSongs from './pages/LikedSongs';
@@ -169,6 +170,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/PaymentInvoices"
+            element={
+              <ProtectedRoute>
+                <PaymentInvoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings/invoices"
+            element={
+              <ProtectedRoute>
+                <PaymentInvoices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/paymentinoice"
+            element={
+              <ProtectedRoute>
+                <PaymentInvoices />
               </ProtectedRoute>
             }
           />

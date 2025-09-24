@@ -17,14 +17,47 @@ import {
   Upload,
   Trash2,
   AlertCircle,
-  Settings as SettingsIcon,
   ChevronLeft
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiService from '@/services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Settings = () => {
+  // Pro-styled toast helpers
+  const showSuccessToast = (title: string, description?: string) => {
+    toast.custom((t) => (
+      <div className={`pointer-events-auto w-full max-w-sm ${t.visible ? 'animate-in fade-in zoom-in-95' : 'animate-out fade-out zoom-out-95'} rounded-xl border border-emerald-500/30 bg-zinc-900/90 backdrop-blur-md shadow-lg shadow-emerald-900/20 p-4`}> 
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-emerald-400"><path fill="currentColor" d="M9.00039 16.2L4.80039 12L3.40039 13.4L9.00039 19L21.0004 7.00001L19.6004 5.60001L9.00039 16.2Z"></path></svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-white font-medium leading-snug">{title}</p>
+            {description && <p className="text-zinc-400 text-sm mt-0.5">{description}</p>}
+          </div>
+          <button onClick={() => toast.dismiss(t.id)} className="text-zinc-400 hover:text-white">✕</button>
+        </div>
+      </div>
+    ));
+  };
+
+  const showErrorToast = (title: string, description?: string) => {
+    toast.custom((t) => (
+      <div className={`pointer-events-auto w-full max-w-sm ${t.visible ? 'animate-in fade-in zoom-in-95' : 'animate-out fade-out zoom-out-95'} rounded-xl border border-red-500/30 bg-zinc-900/90 backdrop-blur-md shadow-lg shadow-red-900/20 p-4`}> 
+        <div className="flex items-start gap-3">
+          <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 text-red-400"><path fill="currentColor" d="M11 7h2v6h-2V7zm0 8h2v2h-2v-2zM1 21h22L12 2 1 21z"></path></svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-white font-medium leading-snug">{title}</p>
+            {description && <p className="text-zinc-400 text-sm mt-0.5">{description}</p>}
+          </div>
+          <button onClick={() => toast.dismiss(t.id)} className="text-zinc-400 hover:text-white">✕</button>
+        </div>
+      </div>
+    ));
+  };
   const navigate = useNavigate();
   const { user, updateUser } = useCustomAuth();
   const { userProfile, isLoading, refetch } = useUserProfile();
@@ -34,7 +67,8 @@ const Settings = () => {
   // Form states
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setSaving] = useState(false);
-  const [activeTab] = useState('profile');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState('profile');
   const [profileImage, setProfileImage] = useState<string | null>(
     localStorage.getItem('userProfileImage')
   );
@@ -69,6 +103,21 @@ const Settings = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [originalData, setOriginalData] = useState<any>(null);
+  // Invoices removed from Account tab UI; keep state only if used elsewhere
+  // Change Password UI state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordErrors, setPasswordErrors] = useState<{ [key: string]: string }>({});
+  // Inline loading for notification toggles
+  const [updatingNotifications, setUpdatingNotifications] = useState<{ email: boolean; push: boolean }>({ email: false, push: false });
+  // Inline loading for appearance
+  const [updatingTheme, setUpdatingTheme] = useState(false);
+  const [updatingLanguage, setUpdatingLanguage] = useState(false);
 
   // Fetch complete user profile data
   const fetchUserProfile = async () => {
@@ -128,6 +177,18 @@ const Settings = () => {
     }
   };
 
+  // Sync tab from URL on mount and when query changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && ['profile','account','notifications'].includes(tab)) {
+      setActiveTab(tab);
+    } else if (tab === 'appearance') {
+      // Redirect legacy links to account tab
+      navigate('/settings?tab=account', { replace: true });
+    }
+  }, [location.search, navigate]);
+
   // Fetch profile data on component mount
   useEffect(() => {
     fetchUserProfile();
@@ -163,6 +224,136 @@ const Settings = () => {
         }
       } as any;
     });
+  };
+
+  const handleToggleNotification = async (field: 'email' | 'push', value: boolean) => {
+    const previous = formData.notifications;
+    const nextNotifications = { ...previous, [field]: value };
+    // Optimistic update
+    setFormData(prev => ({ ...prev, notifications: nextNotifications }));
+    try {
+      // For push notifications, request permission first when enabling
+      if (field === 'push' && value) {
+        try {
+          if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+              const perm = await Notification.requestPermission();
+              if (perm !== 'granted') {
+                throw new Error('Browser notification permission denied');
+              }
+            } else if (Notification.permission !== 'granted') {
+              throw new Error('Browser notification permission denied');
+            }
+          }
+        } catch (permErr: any) {
+          setFormData(prev => ({ ...prev, notifications: previous }));
+          showErrorToast('Permission required', 'Enable notifications in your browser settings.');
+          return;
+        }
+      }
+
+      setUpdatingNotifications(prev => ({ ...prev, [field]: true }));
+      const resp = await apiService.updatePreferences({
+        theme: formData.theme,
+        language: formData.language,
+        notifications: nextNotifications,
+        privacy: formData.privacy
+      });
+      if (!resp?.success) throw new Error(resp?.message || 'Failed to update preferences');
+      const friendly = field === 'email' ? 'Email notifications' : 'Push notifications';
+      showSuccessToast('Preference updated', `${friendly} ${value ? 'enabled' : 'disabled'}.`);
+    } catch (e: any) {
+      // Revert on failure
+      setFormData(prev => ({ ...prev, notifications: previous }));
+      showErrorToast('Update failed', e?.message || 'Failed to update preference.');
+    }
+    finally {
+      setUpdatingNotifications(prev => ({ ...prev, [field]: false }));
+    }
+  };
+
+  const handleThemeChange = async (value: 'light' | 'dark' | 'auto') => {
+    const previous = formData.theme;
+    setFormData(prev => ({ ...prev, theme: value }));
+    try {
+      setUpdatingTheme(true);
+      const resp = await apiService.updatePreferences({
+        theme: value,
+        language: formData.language,
+        notifications: formData.notifications,
+        privacy: formData.privacy
+      });
+      if (!resp?.success) throw new Error(resp?.message || 'Failed to update theme');
+      showSuccessToast('Theme updated', `${value.charAt(0).toUpperCase() + value.slice(1)} theme applied.`);
+    } catch (e: any) {
+      setFormData(prev => ({ ...prev, theme: previous }));
+      showErrorToast('Update failed', e?.message || 'Failed to update theme.');
+    } finally {
+      setUpdatingTheme(false);
+    }
+  };
+
+  const handleLanguageChange = async (value: string) => {
+    const previous = formData.language;
+    setFormData(prev => ({ ...prev, language: value }));
+    try {
+      setUpdatingLanguage(true);
+      const resp = await apiService.updatePreferences({
+        theme: formData.theme,
+        language: value,
+        notifications: formData.notifications,
+        privacy: formData.privacy
+      });
+      if (!resp?.success) throw new Error(resp?.message || 'Failed to update language');
+      showSuccessToast('Language updated', `${value.toUpperCase()} applied.`);
+    } catch (e: any) {
+      setFormData(prev => ({ ...prev, language: previous }));
+      showErrorToast('Update failed', e?.message || 'Failed to update language.');
+    } finally {
+      setUpdatingLanguage(false);
+    }
+  };
+
+  const validateNewPassword = (pwd: string): string | null => {
+    if (!pwd || pwd.length < 8) return 'Must be at least 8 characters';
+    if (!/[A-Z]/.test(pwd)) return 'Must include at least one uppercase letter';
+    if (!/[a-z]/.test(pwd)) return 'Must include at least one lowercase letter';
+    if (!/\d/.test(pwd)) return 'Must include at least one number';
+    if (!/[@$!%*?&]/.test(pwd)) return 'Must include at least one special character (@$!%*?&)';
+    return null;
+  };
+
+  const handleChangePassword = async () => {
+    if (isChangingPassword) return;
+    const errors: any = {};
+    if (!passwordForm.currentPassword) errors.currentPassword = 'Current password is required';
+    const pwdErr = validateNewPassword(passwordForm.newPassword);
+    if (pwdErr) errors.newPassword = pwdErr;
+    if (!passwordForm.confirmPassword) errors.confirmPassword = 'Please confirm your new password';
+    if (!errors.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    setPasswordErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    try {
+      setIsChangingPassword(true);
+      const resp: any = await (apiService as any).changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+      if (!resp?.success) throw new Error(resp?.message || 'Failed to change password');
+      toast.success('Password updated successfully');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordErrors({});
+      setShowPasswordForm(false);
+    } catch (e: any) {
+      console.error('Change password error:', e);
+      toast.error(e?.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,6 +493,12 @@ const Settings = () => {
     }
   };
 
+  const handleCancelPremiumClick = async () => {
+    const confirmed = window.confirm('Are you sure you want to cancel Premium? You will lose Premium benefits immediately.');
+    if (!confirmed) return;
+    await cancelPremium();
+  };
+
   
 
   if (isLoading || isLoadingProfile) {
@@ -344,25 +541,18 @@ const Settings = () => {
       <AudixTopbar />
       <ScrollArea className='h-[calc(100vh-180px)]'>
         <div className="p-6 max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
+          {/* Header (back only) */}
+          <div className="mb-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => navigate('/settings-menu')}
                   className="p-2 rounded-lg hover:bg-zinc-700/60 transition-colors text-zinc-300"
+                  aria-label="Back to settings menu"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                  <SettingsIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-white">Edit your profile</h1>
-                  <p className="text-zinc-400">Manage your account and preferences</p>
-                </div>
               </div>
-              
               {isEditing && (
                 <div className="flex items-center gap-3">
                   <button
@@ -390,17 +580,17 @@ const Settings = () => {
 
             {/* Main Content */}
             <div className="lg:col-span-3">
-              <div className="bg-zinc-800/50 backdrop-blur-sm border border-zinc-700/50 rounded-xl p-6">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
 
                 {/* Profile Tab */}
                 {activeTab === 'profile' && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-white">Profile Information</h2>
+                      <h2 className="text-xl font-semibold text-white tracking-tight">Profile Information</h2>
                       {!isEditing && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                          className="flex items-center gap-2 px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors"
                         >
                           <Edit3 className="w-4 h-4" />
                           Edit Profile
@@ -411,7 +601,7 @@ const Settings = () => {
                     {/* Profile Picture */}
                     <div className="flex items-center gap-6">
                       <div className="relative">
-                        <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center overflow-hidden relative">
+                        <div className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden relative border border-zinc-800 bg-zinc-900">
                           {(profileImage || user?.picture) && (
                             <img
                               src={profileImage || user?.picture}
@@ -431,7 +621,7 @@ const Settings = () => {
                         {isEditing && (
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center transition-colors"
+                            className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center transition-colors border border-zinc-700 bg-zinc-900 hover:bg-zinc-800"
                           >
                             <Camera className="w-4 h-4 text-white" />
                           </button>
@@ -445,10 +635,10 @@ const Settings = () => {
                         />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-white">
+                        <h3 className="text-lg font-medium text-white">
                           {formData.firstName} {formData.lastName}
                         </h3>
-                        <p className="text-zinc-400">{formData.email}</p>
+                        <p className="text-zinc-500">{formData.email}</p>
                         {isEditing && (
                           <div className="mt-2 space-y-1">
                             <button
@@ -479,7 +669,7 @@ const Settings = () => {
                     {/* Form Fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           First Name
                         </label>
                         {isEditing ? (
@@ -487,18 +677,18 @@ const Settings = () => {
                             type="text"
                             value={formData.firstName}
                             onChange={(e) => handleInputChange('firstName', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                             placeholder="Enter your first name"
                           />
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.firstName || 'Not provided'}
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           Last Name
                         </label>
                         {isEditing ? (
@@ -506,29 +696,29 @@ const Settings = () => {
                             type="text"
                             value={formData.lastName}
                             onChange={(e) => handleInputChange('lastName', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                             placeholder="Enter your last name"
                           />
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.lastName || 'Not provided'}
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           <Mail className="w-4 h-4 inline mr-2" />
                           Email Address
                         </label>
-                        <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-zinc-400">
+                        <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400">
                           {formData.email}
                           <span className="ml-2 text-xs text-zinc-500">(Cannot be changed)</span>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           <Phone className="w-4 h-4 inline mr-2" />
                           Phone Number
                         </label>
@@ -537,18 +727,18 @@ const Settings = () => {
                             type="tel"
                             value={formData.phone}
                             onChange={(e) => handleInputChange('phone', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                             placeholder="Enter your phone number"
                           />
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.phone || 'Not provided'}
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           <MapPin className="w-4 h-4 inline mr-2" />
                           Location
                         </label>
@@ -557,18 +747,18 @@ const Settings = () => {
                             type="text"
                             value={formData.location}
                             onChange={(e) => handleInputChange('location', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                             placeholder="Enter your location"
                           />
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.location || 'Not provided'}
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           <Calendar className="w-4 h-4 inline mr-2" />
                           Date of Birth
                         </label>
@@ -577,24 +767,24 @@ const Settings = () => {
                             type="date"
                             value={formData.dateOfBirth}
                             onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                           />
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.dateOfBirth || 'Not provided'}
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        <label className="block text-sm font-medium text-zinc-400 mb-2">
                           Gender
                         </label>
                         {isEditing ? (
                           <select
                             value={formData.gender}
                             onChange={(e) => handleInputChange('gender', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                           >
                             <option value="prefer-not-to-say">Prefer not to say</option>
                             <option value="male">Male</option>
@@ -602,7 +792,7 @@ const Settings = () => {
                             <option value="other">Other</option>
                           </select>
                         ) : (
-                          <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                          <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                             {formData.gender === 'prefer-not-to-say' ? 'Prefer not to say' : 
                              formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1)}
                           </div>
@@ -612,7 +802,7 @@ const Settings = () => {
 
                     {/* Bio Section */}
                     <div>
-                      <label className="block text-sm font-medium text-zinc-300 mb-2">
+                      <label className="block text-sm font-medium text-zinc-400 mb-2">
                         Bio
                       </label>
                       {isEditing ? (
@@ -620,11 +810,11 @@ const Settings = () => {
                           value={formData.bio}
                           onChange={(e) => handleInputChange('bio', e.target.value)}
                           rows={4}
-                          className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                          className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent resize-none"
                           placeholder="Tell us about yourself..."
                         />
                       ) : (
-                        <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white min-h-[100px]">
+                        <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200 min-h-[100px]">
                           {formData.bio || 'No bio provided'}
                         </div>
                       )}
@@ -632,7 +822,7 @@ const Settings = () => {
 
                     {/* Website */}
                     <div>
-                      <label className="block text-sm font-medium text-zinc-300 mb-2">
+                      <label className="block text-sm font-medium text-zinc-400 mb-2">
                         <Globe className="w-4 h-4 inline mr-2" />
                         Website
                       </label>
@@ -641,13 +831,13 @@ const Settings = () => {
                           type="url"
                           value={formData.website}
                           onChange={(e) => handleInputChange('website', e.target.value)}
-                          className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
                           placeholder="https://your-website.com"
                         />
                       ) : (
-                        <div className="px-4 py-3 bg-zinc-700/30 border border-zinc-600/50 rounded-lg text-white">
+                        <div className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-200">
                           {formData.website ? (
-                            <a href={formData.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                            <a href={formData.website} target="_blank" rel="noopener noreferrer" className="text-zinc-300 hover:text-white">
                               {formData.website}
                             </a>
                           ) : (
@@ -662,25 +852,25 @@ const Settings = () => {
                 {/* Account Tab */}
                 {activeTab === 'account' && (
                   <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-white">Account Settings</h2>
+                    <h2 className="text-xl font-semibold text-white tracking-tight">Account Settings</h2>
 
                     <div className="space-y-4">
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
+                      <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-white font-medium">Account Type</h3>
-                            <p className="text-zinc-400 text-sm">Your current subscription plan</p>
+                            <p className="text-zinc-500 text-sm">Your current subscription plan</p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
-                              {accountType === 'premium' ? 'Premium Plan' : 'Free Plan'}
+                            <span className="px-3 py-1 rounded-full text-sm font-medium border border-zinc-700 text-zinc-300">
+                              {accountType === 'premium' ? 'Premium' : 'Free'}
                             </span>
                             {accountType !== 'premium' ? (
-                              <button className="px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white rounded-lg transition-all duration-200">
+                              <button onClick={() => navigate('/premium')} className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors">
                                 Upgrade to Premium
                               </button>
                             ) : (
-                              <button onClick={cancelPremium} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                              <button onClick={handleCancelPremiumClick} className="px-4 py-2 rounded-md border border-red-700 text-red-400 hover:bg-red-900/20 transition-colors">
                                 Cancel Premium
                               </button>
                             )}
@@ -688,41 +878,151 @@ const Settings = () => {
                         </div>
                       </div>
 
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-white font-medium">Two-Factor Authentication</h3>
-                            <p className="text-zinc-400 text-sm">Add an extra layer of security to your account</p>
-                          </div>
-                          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-                            Enable 2FA
-                          </button>
-                        </div>
-                      </div>
+                      
 
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
+                      <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-white font-medium">Change Password</h3>
-                            <p className="text-zinc-400 text-sm">Update your account password</p>
+                            <p className="text-zinc-500 text-sm">Update your account password</p>
                           </div>
-                          <button className="px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg transition-colors">
-                            Change Password
+                          <button
+                            onClick={() => setShowPasswordForm(v => !v)}
+                            className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors"
+                          >
+                            {showPasswordForm ? 'Hide' : 'Change Password'}
                           </button>
                         </div>
+
+                        {showPasswordForm && (
+                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-zinc-400 mb-2">Current Password</label>
+                              <input
+                                type="password"
+                                value={passwordForm.currentPassword}
+                                onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
+                                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
+                                placeholder="Enter current password"
+                                autoComplete="current-password"
+                              />
+                              {passwordErrors.currentPassword && (
+                                <p className="mt-1 text-sm text-red-400">{passwordErrors.currentPassword}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-zinc-400 mb-2">New Password</label>
+                              <input
+                                type="password"
+                                value={passwordForm.newPassword}
+                                onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
+                                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
+                                placeholder="Enter new password"
+                                autoComplete="new-password"
+                              />
+                              {passwordErrors.newPassword && (
+                                <p className="mt-1 text-sm text-red-400">{passwordErrors.newPassword}</p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-zinc-400 mb-2">Confirm New Password</label>
+                              <input
+                                type="password"
+                                value={passwordForm.confirmPassword}
+                                onChange={(e) => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                                className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500 focus:border-transparent"
+                                placeholder="Re-enter new password"
+                                autoComplete="new-password"
+                              />
+                              {passwordErrors.confirmPassword && (
+                                <p className="mt-1 text-sm text-red-400">{passwordErrors.confirmPassword}</p>
+                              )}
+                            </div>
+
+                            <div className="md:col-span-2 flex items-center gap-3 mt-2">
+                              <button
+                                onClick={handleChangePassword}
+                                disabled={isChangingPassword}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg"
+                              >
+                                {isChangingPassword ? 'Updating...' : 'Update Password'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                                  setPasswordErrors({});
+                                  setShowPasswordForm(false);
+                                }}
+                                disabled={isChangingPassword}
+                                className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white rounded-lg"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <div className="p-4 bg-red-900/20 border border-red-900/40 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-red-400 font-medium">Delete Account</h3>
-                            <p className="text-zinc-400 text-sm">Permanently delete your account and all data</p>
+                            <p className="text-zinc-500 text-sm">Permanently delete your account and all data</p>
                           </div>
-                          <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const Swal = (window as any).Swal;
+                                if (!Swal) {
+                                  const confirmText = prompt('Type DELETE to confirm account deletion (this deactivates your account)');
+                                  if (confirmText !== 'DELETE') return;
+                                  const resp: any = await apiService.deleteAccount({ confirmDeletion: 'DELETE' });
+                                  if (!resp?.success) throw new Error(resp?.message || 'Failed to delete account');
+                                  toast.success('Account deactivated. Logging out...');
+                                  await apiService.logout();
+                                  navigate('/login');
+                                  return;
+                                }
+
+                                const result = await Swal.fire({
+                                  title: 'Delete Account',
+                                  html: '<p class="text-sm text-zinc-400">This will permanently delete your account and all data. Type <b>DELETE</b> to confirm.</p>',
+                                  input: 'text',
+                                  inputAttributes: { autocapitalize: 'off', placeholder: 'Type DELETE' },
+                                  inputValidator: (value: string) => {
+                                    if (value !== 'DELETE') return 'Please type DELETE to confirm';
+                                    return null as any;
+                                  },
+                                  showCancelButton: true,
+                                  confirmButtonText: 'Yes, delete',
+                                  cancelButtonText: 'Cancel',
+                                  confirmButtonColor: '#dc2626',
+                                  focusCancel: true,
+                                  reverseButtons: true,
+                                  icon: 'warning',
+                                });
+
+                                if (!result.isConfirmed) return;
+
+                                const resp: any = await apiService.deleteAccount({ confirmDeletion: 'DELETE' });
+                                if (!resp?.success) throw new Error(resp?.message || 'Failed to delete account');
+                                toast.success('Account deactivated. Logging out...');
+                                await apiService.logout();
+                                navigate('/login');
+                              } catch (e: any) {
+                                toast.error(e?.message || 'Failed to delete account');
+                              }
+                            }}
+                            className="px-4 py-2 rounded-md border border-red-700 text-red-400 hover:bg-red-900/20 transition-colors"
+                          >
                             Delete Account
                           </button>
                         </div>
                       </div>
+
+                      {/* Payment Invoices section removed as requested */}
                     </div>
                   </div>
                 )}
@@ -743,11 +1043,15 @@ const Settings = () => {
                             <input
                               type="checkbox"
                               checked={formData.notifications.email}
-                              onChange={(e) => handleNestedInputChange('notifications', 'email', e.target.checked)}
+                              onChange={(e) => handleToggleNotification('email', e.target.checked)}
+                              disabled={updatingNotifications.email}
                               className="sr-only peer"
                             />
-                            <div className="w-11 h-6 bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            <div className={`w-11 h-6 ${updatingNotifications.email ? 'opacity-60' : ''} bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600`}></div>
                           </label>
+                          {updatingNotifications.email && (
+                            <span className="ml-3 text-xs text-zinc-400">Saving...</span>
+                          )}
                         </div>
                       </div>
 
@@ -761,142 +1065,24 @@ const Settings = () => {
                             <input
                               type="checkbox"
                               checked={formData.notifications.push}
-                              onChange={(e) => handleNestedInputChange('notifications', 'push', e.target.checked)}
+                              onChange={(e) => handleToggleNotification('push', e.target.checked)}
+                              disabled={updatingNotifications.push}
                               className="sr-only peer"
                             />
-                            <div className="w-11 h-6 bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            <div className={`w-11 h-6 ${updatingNotifications.push ? 'opacity-60' : ''} bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600`}></div>
                           </label>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-white font-medium">Marketing Communications</h3>
-                            <p className="text-zinc-400 text-sm">Receive promotional emails and updates</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={formData.notifications.marketing}
-                              onChange={(e) => handleNestedInputChange('notifications', 'marketing', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                          </label>
+                          {updatingNotifications.push && (
+                            <span className="ml-3 text-xs text-zinc-400">Saving...</span>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* Privacy Tab */}
-                {activeTab === 'privacy' && (
-                  <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-white">Privacy Settings</h2>
+                {/* Privacy Tab removed as requested */}
 
-                    <div className="space-y-4">
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div>
-                          <h3 className="text-white font-medium mb-2">Profile Visibility</h3>
-                          <p className="text-zinc-400 text-sm mb-4">Choose who can see your profile</p>
-                          <div className="space-y-2">
-                            {['public', 'friends', 'private'].map((option) => (
-                              <label key={option} className="flex items-center gap-3 cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="profileVisibility"
-                                  value={option}
-                                  checked={formData.privacy.profileVisibility === option}
-                                  onChange={(e) => handleNestedInputChange('privacy', 'profileVisibility', e.target.value)}
-                                  className="w-4 h-4 text-green-600 bg-zinc-700 border-zinc-600 focus:ring-green-500"
-                                />
-                                <span className="text-white capitalize">{option}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-white font-medium">Show Recent Activity</h3>
-                            <p className="text-zinc-400 text-sm">Let others see your recent listening activity</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={formData.privacy.showRecentActivity}
-                              onChange={(e) => handleNestedInputChange('privacy', 'showRecentActivity', e.target.checked)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-zinc-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Appearance Tab */}
-                {activeTab === 'appearance' && (
-                  <div className="space-y-6">
-                    <h2 className="text-xl font-bold text-white">Appearance Settings</h2>
-
-                    <div className="space-y-4">
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div>
-                          <h3 className="text-white font-medium mb-2">Theme</h3>
-                          <p className="text-zinc-400 text-sm mb-4">Choose your preferred theme</p>
-                          <div className="grid grid-cols-3 gap-3">
-                            {[
-                              { value: 'light', label: 'Light', preview: 'bg-white border-2' },
-                              { value: 'dark', label: 'Dark', preview: 'bg-zinc-900 border-2' },
-                              { value: 'auto', label: 'Auto', preview: 'bg-gradient-to-r from-white to-zinc-900 border-2' }
-                            ].map((theme) => (
-                              <label key={theme.value} className="cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="theme"
-                                  value={theme.value}
-                                  checked={formData.theme === theme.value}
-                                  onChange={(e) => handleInputChange('theme', e.target.value)}
-                                  className="sr-only peer"
-                                />
-                                <div className={`p-4 rounded-lg border-2 transition-all peer-checked:border-green-500 peer-checked:bg-green-500/10 ${theme.preview} hover:border-zinc-500`}>
-                                  <div className="text-center">
-                                    <div className={`w-full h-8 rounded mb-2 ${theme.preview}`}></div>
-                                    <span className="text-white text-sm font-medium">{theme.label}</span>
-                                  </div>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-zinc-700/30 border border-zinc-600/50 rounded-lg">
-                        <div>
-                          <h3 className="text-white font-medium mb-2">Language</h3>
-                          <p className="text-zinc-400 text-sm mb-4">Select your preferred language</p>
-                          <select
-                            value={formData.language}
-                            onChange={(e) => handleInputChange('language', e.target.value)}
-                            className="w-full px-4 py-3 bg-zinc-700/50 border border-zinc-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          >
-                            <option value="en">English</option>
-                            <option value="es">Español</option>
-                            <option value="fr">Français</option>
-                            <option value="de">Deutsch</option>
-                            <option value="it">Italiano</option>
-                            <option value="pt">Português</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Appearance Tab removed */}
 
               </div>
             </div>

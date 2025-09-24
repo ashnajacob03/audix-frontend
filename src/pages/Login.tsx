@@ -12,6 +12,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorType, setErrorType] = useState<'validation' | 'auth' | 'network' | 'verification' | null>(null);
 
@@ -47,6 +49,7 @@ const Login = () => {
         body: JSON.stringify({
           email: email.trim(),
           password,
+          ...(twoFactorCode && { twoFactorToken: twoFactorCode.trim() })
         }),
       });
 
@@ -68,6 +71,14 @@ const Login = () => {
             },
             replace: true
           });
+          return;
+        }
+
+        if (data.code === '2FA_REQUIRED') {
+          setTwoFactorStep(true);
+          setError('Enter your 2FA code to continue.');
+          setErrorType('auth');
+          setIsLoading(false);
           return;
         }
 
@@ -118,6 +129,10 @@ const Login = () => {
       console.log('Stored user:', localStorage.getItem('user'));
       console.log('Stored access token:', localStorage.getItem('accessToken') ? 'Present' : 'Missing');
       console.log('Stored refresh token:', localStorage.getItem('refreshToken') ? 'Present' : 'Missing');
+
+      // Reset 2FA state on success
+      setTwoFactorStep(false);
+      setTwoFactorCode('');
 
       // Check if user is admin and redirect accordingly
       const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'ashnajacob003@gmail.com';
@@ -264,6 +279,23 @@ const Login = () => {
                 </button>
               </div>
             </div>
+
+            {twoFactorStep && (
+              <div>
+                <label htmlFor="twofactor" className="block text-sm font-medium text-gray-300 mb-2">
+                  2FA Code
+                </label>
+                <input
+                  type="text"
+                  id="twofactor"
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#404040] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] focus:border-transparent transition-all duration-200"
+                  placeholder="Enter 6-digit code"
+                  inputMode="numeric"
+                />
+              </div>
+            )}
             {/* Forgot Password Link */}
             <div className="text-right">
               <Link to="/forgot-password" className="text-[#1db954] hover:text-[#1ed760] text-sm font-medium transition-colors">
