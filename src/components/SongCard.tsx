@@ -63,11 +63,11 @@ const SongCard = ({ song }: SongCardProps) => {
           fallbackSeed={song._id}
         />
         
-        {/* Play Button Overlay */}
+        {/* Play Button Overlay - Always visible on mobile, visible on hover for desktop */}
         <div
-          className={`absolute bottom-2 right-2 bg-green-500 hover:bg-green-400 text-black rounded-full p-3 shadow-lg transition-all duration-300 ${
-            isHovered || isPlaying ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-          }`}
+          className={`absolute bottom-2 right-2 bg-green-500 hover:bg-green-400 text-black rounded-full p-3 shadow-lg transition-all duration-300 
+            opacity-100 sm:opacity-0 sm:group-hover:opacity-100 translate-y-0 sm:translate-y-2 sm:group-hover:translate-y-0
+            ${isThisSongPlaying ? 'opacity-100 translate-y-0' : ''}`}
         >
           <button onClick={handlePlayClick} className="flex items-center justify-center">
             {isThisSongPlaying ? (
@@ -88,8 +88,8 @@ const SongCard = ({ song }: SongCardProps) => {
           {song.artist}
         </p>
       </div>
-      {/* Three-dot menu */}
-      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Three-dot menu - Always visible on mobile, visible on hover for desktop */}
+      <div className="absolute bottom-3 right-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <DropdownMenu>
           <DropdownMenuTrigger className="text-zinc-300 hover:text-white">
             <MoreVertical className="w-5 h-5" />

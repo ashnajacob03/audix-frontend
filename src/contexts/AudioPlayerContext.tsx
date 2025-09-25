@@ -198,12 +198,17 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
 
   // Internal helper to attempt to play a list of URLs on the shared audio element
   const attemptPlayUrls = useCallback(async (urls: string[]) => {
-    if (!audioRef.current) return;
+    if (!audioRef.current) return false;
     const myRequestId = ++playRequestIdRef.current;
     let played = false;
     let lastError: unknown = null;
+    let attemptCount = 0;
+    
     for (const url of urls) {
-      if (myRequestId !== playRequestIdRef.current) return;
+      if (myRequestId !== playRequestIdRef.current) return false;
+      attemptCount++;
+      console.log(`Attempt ${attemptCount}/${urls.length} - Trying URL: ${url}`);
+      
       try {
         const audio = audioRef.current;
         audio.pause();
@@ -212,45 +217,62 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
         audio.src = url;
         audio.volume = volume;
         audio.currentTime = 0;
+        
         try {
-          if (myRequestId !== playRequestIdRef.current) return;
+          if (myRequestId !== playRequestIdRef.current) return false;
           await audio.play();
         } catch (immediateErr: any) {
+          console.log(`Initial play attempt failed for ${url}, trying with canplay event`, immediateErr);
+          
           await new Promise<void>((resolve, reject) => {
             const timeout = setTimeout(() => {
+              console.log(`Timeout waiting for canplay event on ${url}`);
               cleanup();
               resolve();
-            }, 1200);
+            }, 3000); // Increased timeout for slower connections
+            
             const onCanPlay = () => {
+              console.log(`CanPlay event triggered for ${url}`);
               cleanup();
               resolve();
             };
+            
             const onError = (e: Event) => {
+              console.error(`Error event triggered for ${url}`, e);
               cleanup();
               reject(e);
             };
+            
             function cleanup() {
               clearTimeout(timeout);
               audio.removeEventListener('canplay', onCanPlay);
               audio.removeEventListener('error', onError);
             }
+            
             audio.addEventListener('canplay', onCanPlay, { once: true });
             audio.addEventListener('error', onError, { once: true });
             audio.load();
           });
-          if (myRequestId !== playRequestIdRef.current) return;
+          
+          if (myRequestId !== playRequestIdRef.current) return false;
           await audio.play();
         }
+        
+        console.log(`Successfully playing from URL: ${url}`);
         played = true;
-        break;
+        return true;
       } catch (err) {
+        console.error(`Failed to play from URL: ${url}`, err);
         lastError = err;
         continue;
       }
     }
+    
     if (!played) {
+      console.error('All playback attempts failed', { urls, lastError });
       throw lastError || new Error('Failed to play from all candidate URLs');
     }
+    return false;
   }, [volume]);
 
   // Core song playback without ad logic
@@ -259,6 +281,8 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     try {
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
       const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
+      
+      // Always prioritize the backend stream endpoint first for consistency
       const candidateUrls = isBlobSource
         ? [song.audioUrl as string]
         : ([
@@ -277,6 +301,8 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       setIsPlaying(false);
       setCurrentTime(0);
 
+      console.log(`Attempting to play song: ${song.title} by ${song.artist}`);
+      console.log('Candidate URLs:', candidateUrls);
       await attemptPlayUrls(candidateUrls);
 
       setCurrentSong(song);
@@ -295,8 +321,14 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       if (error && (error.name === 'AbortError')) return;
       console.error('Failed to play song:', error);
       setIsPlaying(false);
+      
+      // If all URLs failed and we're in a queue, try the next song
+      if (queue.length > 0) {
+        console.log('All playback attempts failed, trying next song in queue');
+        // We'll handle this in the handleError function instead to avoid circular dependency
+      }
     }
-  }, [attemptPlayUrls]);
+  }, [attemptPlayUrls, queue.length]);
 
   // Next song function (defined before playSong to avoid circular dependency)
   const next = useCallback(async () => {
@@ -685,4 +717,4 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       {children}
     </AudioPlayerContext.Provider>
   );
-}; 
+};
