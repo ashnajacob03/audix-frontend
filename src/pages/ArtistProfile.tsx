@@ -66,7 +66,18 @@ const ArtistProfile: React.FC = () => {
       setArtist((a: any) => ({ ...a, isFollowing: !wasFollowing, followerCount: Math.max(0, (a?.followerCount || 0) + (!wasFollowing ? 1 : -1)) }));
       const resp = await api.followArtist(artist.name, { suppressAuthRedirect: true } as any);
       if (resp && typeof resp.isFollowing === 'boolean') {
-        setArtist((a: any) => ({ ...a, isFollowing: resp.isFollowing }));
+        setArtist((a: any) => {
+          if (!a) return a;
+          const optimisticFollowing = !wasFollowing;
+          let followerCount = a.followerCount || 0;
+          if (resp.isFollowing !== optimisticFollowing) {
+            followerCount = Math.max(0, followerCount + (resp.isFollowing ? 1 : -1));
+          }
+          if (typeof resp.followerCount === 'number') {
+            followerCount = resp.followerCount;
+          }
+          return { ...a, isFollowing: resp.isFollowing, followerCount };
+        });
       }
     } finally {
       setBusy(false);

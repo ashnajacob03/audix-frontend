@@ -28,7 +28,21 @@ const FallbackImage = ({
       const offlineFallback = generateInlineFallback(fallbackSeed);
       setCurrentSrc(offlineFallback);
     } else {
-      setCurrentSrc(src);
+      // Normalize relative URLs to absolute using API base (strip trailing /api)
+      try {
+        const isAbsolute = /^(https?:)?\/\//i.test(src) || src.startsWith('data:') || src.startsWith('blob:');
+        if (isAbsolute) {
+          setCurrentSrc(src);
+        } else if (src.startsWith('/')) {
+          const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
+          const origin = apiBase.replace(/\/?api\/?$/i, '');
+          setCurrentSrc(`${origin}${src}`);
+        } else {
+          setCurrentSrc(src);
+        }
+      } catch {
+        setCurrentSrc(src);
+      }
     }
   }, [src]);
 

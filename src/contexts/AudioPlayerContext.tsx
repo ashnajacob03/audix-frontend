@@ -30,6 +30,12 @@ interface AudioPlayerContextType {
   currentIndex: number;
   queueSource: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual';
   
+  // Skip limit functionality
+  skipCount: number;
+  skipLimit: number;
+  showSkipLimitModal: boolean;
+  closeSkipLimitModal: () => void;
+  
   // Playback controls
   playSong: (song: Song) => void;
   playQueue: (songs: Song[], startIndex?: number, source?: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual') => void;
@@ -86,6 +92,25 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const [queue, setQueue] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [queueSource, setQueueSource] = useState<'liked' | 'playlist' | 'search' | 'recommendations' | 'manual'>('manual');
+  
+  // Skip limit functionality
+  const [skipCount, setSkipCount] = useState(() => {
+    // Get skip count from localStorage, reset if it's a new day
+    const today = new Date().toDateString();
+    const lastReset = localStorage.getItem('skipCountResetDate');
+    if (lastReset !== today) {
+      localStorage.setItem('skipCountResetDate', today);
+      return 0;
+    }
+    return parseInt(localStorage.getItem('skipCount') || '0');
+  });
+  const [skipLimit] = useState(5); // Free users get 5 skips per day
+  const [showSkipLimitModal, setShowSkipLimitModal] = useState(false);
+
+  // Save skip count to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('skipCount', skipCount.toString());
+  }, [skipCount]);
 
   // Initialize audio element
   useEffect(() => {
@@ -282,14 +307,25 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
       const apiBase = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002/api';
       const isBlobSource = !!(song.audioUrl && song.audioUrl.startsWith('blob:'));
       
+      // Helper to normalize relative URLs to absolute (strip trailing /api on base)
+      const makeAbsolute = (maybeUrl?: string) => {
+        if (!maybeUrl) return undefined;
+        if (/^(https?:)?\/\//i.test(maybeUrl) || maybeUrl.startsWith('data:') || maybeUrl.startsWith('blob:')) return maybeUrl;
+        if (maybeUrl.startsWith('/')) {
+          const origin = apiBase.replace(/\/?api\/?$/i, '');
+          return `${origin}${maybeUrl}`;
+        }
+        return maybeUrl;
+      };
+
       // Always prioritize the backend stream endpoint first for consistency
       const candidateUrls = isBlobSource
         ? [song.audioUrl as string]
         : ([
             `${apiBase}/music/songs/${song._id}/stream`,
-            song.audioUrl,
-            song.streamUrl,
-            song.previewUrl,
+            makeAbsolute(song.audioUrl),
+            makeAbsolute(song.streamUrl),
+            makeAbsolute(song.previewUrl),
           ].filter(Boolean) as string[]);
 
       if (candidateUrls.length === 0) {
@@ -332,6 +368,15 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
 
   // Next song function (defined before playSong to avoid circular dependency)
   const next = useCallback(async () => {
+    // Check skip limit for free users
+    if (isAuthenticated && user && !user.isPremium) {
+      if (skipCount >= skipLimit) {
+        setShowSkipLimitModal(true);
+        return;
+      }
+      setSkipCount(prev => prev + 1);
+    }
+
     if (currentIndex < queue.length - 1) {
       const nextIndex = currentIndex + 1;
       const nextSong = queue[nextIndex];
@@ -685,6 +730,11 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     adScheduler.finishCurrentAd();
   }, []);
 
+  // Close skip limit modal
+  const closeSkipLimitModal = useCallback(() => {
+    setShowSkipLimitModal(false);
+  }, []);
+
   const value: AudioPlayerContextType = {
     currentSong,
     isPlaying,
@@ -696,6 +746,10 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     queue,
     currentIndex,
     queueSource,
+    skipCount,
+    skipLimit,
+    showSkipLimitModal,
+    closeSkipLimitModal,
     playSong,
     playQueue,
     pause,

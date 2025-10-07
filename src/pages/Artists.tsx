@@ -75,10 +75,18 @@ const ArtistsPage: React.FC = () => {
         const finalFollowing = resp.isFollowing;
         setArtists(prev => prev.map(a => {
           if (a.name !== name) return a;
-          const baseCount = a.followerCount || 0;
-          // Adjust count if server result differs from optimistic state
-          const correctedCount = baseCount + (finalFollowing ? (wasFollowing ? 0 : 0) : (wasFollowing ? 0 : 0));
-          return { ...a, isFollowing: finalFollowing, followerCount: Math.max(0, correctedCount) };
+          const optimisticFollowing = !wasFollowing;
+          let followerCount = a.followerCount || 0;
+          // If server disagrees with optimistic toggle, correct the count
+          if (finalFollowing !== optimisticFollowing) {
+            followerCount = Math.max(0, followerCount + (finalFollowing ? 1 : -1));
+          }
+        
+          // If backend returned followerCount, prefer it
+          if (typeof resp.followerCount === 'number') {
+            followerCount = resp.followerCount;
+          }
+          return { ...a, isFollowing: finalFollowing, followerCount };
         }));
       }
     } catch (e) {

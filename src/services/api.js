@@ -473,6 +473,39 @@ class ApiService {
     return this.get(`/music/songs/${id}`);
   }
 
+  // Upload a manual song with files
+  async createSongWithUpload({ title, album, genre, releaseDate, explicit, description, audioFile, coverFile, artist }) {
+    const fd = new FormData();
+    fd.append('title', title);
+    if (album) fd.append('album', album);
+    if (genre) fd.append('genre', genre);
+    if (releaseDate) fd.append('releaseDate', releaseDate);
+    if (typeof explicit === 'boolean') fd.append('explicit', String(explicit));
+    if (description) fd.append('description', description);
+    if (artist) fd.append('artist', artist);
+    if (audioFile) fd.append('audio', audioFile);
+    if (coverFile) fd.append('cover', coverFile);
+    return this.requestForm('/music/songs', fd, { method: 'POST' });
+  }
+
+  async getMySongs() {
+    return this.get('/music/my-songs');
+  }
+
+  async deleteSong(id) {
+    return this.delete(`/music/songs/${id}`);
+  }
+
+  async updateSongWithUpload(id, { title, genre, description, audioFile, coverFile }) {
+    const fd = new FormData();
+    if (title !== undefined) fd.append('title', title);
+    if (genre !== undefined) fd.append('genre', genre);
+    if (description !== undefined) fd.append('description', description);
+    if (audioFile) fd.append('audio', audioFile);
+    if (coverFile) fd.append('cover', coverFile);
+    return this.requestForm(`/music/songs/${id}`, fd, { method: 'PUT' });
+  }
+
   // Get lyrics for a song by id
   async getSongLyrics(id, options = {}) {
     // Backend endpoint expected at /music/songs/:id/lyrics

@@ -20,7 +20,7 @@ import {
   ChevronDown,
   MoreVertical,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Tooltip,
@@ -59,6 +59,7 @@ export const PlaybackControls = () => {
     duration,
     volume,
     skipCount,
+    skipLimit,
     showSkipLimitModal,
     pause,
     resume,
@@ -790,7 +791,7 @@ export const PlaybackControls = () => {
         isOpen={showSkipLimitModal}
         onClose={closeSkipLimitModal}
         skipCount={skipCount}
-        skipLimit={5}
+        skipLimit={skipLimit}
       />
 
       {/* Add to Playlist Modal */}

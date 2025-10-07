@@ -81,6 +81,7 @@ const fallbackImage = "https://images.unsplash.com/photo-1470225620780-dba8ba36b
 const normalizeSongForCard = (song: any) => ({
 	...song,
 	imageUrl: song?.imageUrl || fallbackImage,
+	artist: song?.artist || 'Unknown Artist', // Ensure artist name is never undefined
 });
 
 const Home = () => {

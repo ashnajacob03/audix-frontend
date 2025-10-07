@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, X, User, Clock, Trash2 } from 'lucide-react';
+import { Bell, Check, X, User, Clock, Trash2, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from './ui/button';
 import {
@@ -344,7 +344,11 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
-                          {notification.sender?.profilePicture ? (
+                          {notification.type === 'new_song' ? (
+                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center">
+                              <Music className="w-4 h-4 text-white" />
+                            </div>
+                          ) : notification.sender?.profilePicture ? (
                             <img
                               src={notification.sender.profilePicture}
                               alt={`${notification.sender?.firstName || 'User'} ${notification.sender?.lastName || ''}`}
@@ -370,6 +374,21 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                           <p className="text-sm text-zinc-300 mt-1">
                             {notification.message}
                           </p>
+
+                          {/* New song notification - show clickable song link */}
+                          {notification.type === 'new_song' && notification.data?.songId && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => {
+                                  // Navigate to the song page
+                                  window.location.href = `/song/${notification.data.songId}`;
+                                }}
+                                className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
+                              >
+                                Listen to song
+                              </button>
+                            </div>
+                          )}
 
                           <div className="flex items-center gap-2 mt-2">
                             <Clock className="w-3 h-3 text-zinc-500" />

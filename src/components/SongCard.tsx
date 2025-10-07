@@ -85,7 +85,7 @@ const SongCard = ({ song }: SongCardProps) => {
           {song.title}
         </h3>
         <p className="text-sm text-zinc-400 truncate group-hover:text-zinc-300">
-          {song.artist}
+          {song.artist || 'Unknown Artist'}
         </p>
       </div>
       {/* Three-dot menu - Always visible on mobile, visible on hover for desktop */}
