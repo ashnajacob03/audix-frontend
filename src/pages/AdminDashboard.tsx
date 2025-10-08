@@ -7,18 +7,33 @@ import AdminTopbar from '@/components/AdminTopbar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserManagement from '@/components/admin/UserManagement';
 import ArtistVerifications from '@/components/admin/ArtistVerifications';
+import ArtistManagement from '../components/admin/ArtistManagement';
 import {
   Shield,
   Users,
   BarChart3,
-  Activity,
-  Crown,
   XCircle,
-  UserPlus, 
-  Clock,
-  Zap,
   Globe,
+  Crown,
+  Activity,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid
+} from 'recharts';
 
 const AdminDashboard = () => {
   const { user } = useCustomAuth();
@@ -27,6 +42,7 @@ const AdminDashboard = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [range, setRange] = useState('30d');
 
   // Admin email from environment
   const ADMIN_EMAIL = 'ashnajacob003@gmail.com';
@@ -87,74 +103,29 @@ const AdminDashboard = () => {
     }
   }, [user, userProfile, navigate]);
 
-  // Live dashboard stats
-  const [dashboardStats, setDashboardStats] = useState<{
-    users: { total: number; premium: number; newToday: number; activeToday: number };
-    revenue: { monthly: number; growthRate: number };
-    engagement: { totalStreams: number; avgSessionTime: string };
-  } | null>(null);
+  // Analytics data for charts
+  const [analytics, setAnalytics] = useState<any | null>(null);
 
-  const fetchDashboardStats = async () => {
+  const fetchAnalytics = async () => {
     try {
-      const resp = await adminApi.getDashboardStats();
-      // adminApi returns inner data, so resp = { stats }
-      setDashboardStats(resp.stats);
+      const resp = await adminApi.getAnalytics(range);
+      console.log('Analytics response:', resp);
+      setAnalytics(resp?.data || resp || null);
     } catch (e) {
-      console.error('Failed to load dashboard stats', e);
+      console.error('Failed to load analytics', e);
+      setAnalytics(null);
     }
   };
 
   useEffect(() => {
     if (isAuthorized) {
-      fetchDashboardStats();
       fetchRecentUsers();
+      fetchAnalytics();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthorized]);
+  }, [isAuthorized, range]);
 
-  // Minimal admin stats - only what's actually available from backend
-  const adminStats = [
-    {
-      icon: Users,
-      label: "Total Users",
-      value: (dashboardStats?.users.total ?? 0).toLocaleString(),
-      change: "—",
-      changeType: "neutral",
-      color: "from-blue-500 to-blue-600",
-      bgColor: "bg-blue-500/10",
-      borderColor: "border-blue-500/20"
-    },
-    {
-      icon: Crown,
-      label: "Premium Users",
-      value: (dashboardStats?.users.premium ?? 0).toLocaleString(),
-      change: "—",
-      changeType: "neutral",
-      color: "from-yellow-500 to-yellow-600",
-      bgColor: "bg-yellow-500/10",
-      borderColor: "border-yellow-500/20"
-    },
-    {
-      icon: Activity,
-      label: "Active Today",
-      value: (dashboardStats?.users.activeToday ?? 0).toLocaleString(),
-      change: "—",
-      changeType: "neutral",
-      color: "from-purple-500 to-purple-600",
-      bgColor: "bg-purple-500/10",
-      borderColor: "border-purple-500/20"
-    },
-    {
-      icon: UserPlus,
-      label: "New Today",
-      value: (dashboardStats?.users.newToday ?? 0).toLocaleString(),
-      change: "—",
-      changeType: "neutral",
-      color: "from-green-500 to-green-600",
-      bgColor: "bg-green-500/10",
-      borderColor: "border-green-500/20"
-    }
-  ];
+  // Stats cards removed
 
 
   type AdminUserListItem = {
@@ -195,67 +166,13 @@ const AdminDashboard = () => {
     return `${days} d ago`;
   };
 
-  const generateCSVReport = async () => {
-    try {
-      // Fetch all users for the report
-      const response = await adminApi.getUsers({ page: 1, limit: 1000 }); // Get up to 1000 users
-      const users = response.users;
-
-      // Prepare CSV headers
-      const headers = [
-        'ID',
-        'Name',
-        'Email',
-        'Account Type',
-        'Email Verified',
-        'Is Admin',
-        'Joined Date',
-        'Last Login',
-        'Is Active'
-      ];
-
-      // Prepare CSV data
-      const csvData = users.map(user => [
-        user.id || '',
-        user.name || '',
-        user.email || '',
-        user.accountType || '',
-        user.isEmailVerified ? 'Yes' : 'No',
-        user.isAdmin ? 'Yes' : 'No',
-        user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : '',
-        user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '',
-        user.isActive ? 'Yes' : 'No'
-      ]);
-
-      // Create CSV content
-      const csvContent = [
-        headers.join(','),
-        ...csvData.map(row => row.map(field => `"${field}"`).join(','))
-      ].join('\n');
-
-      // Create and download the file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `user-report-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log('CSV report generated successfully');
-    } catch (error) {
-      console.error('Error generating CSV report:', error);
-      alert('Failed to generate report. Please try again.');
-    }
-  };
+  
 
 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="text-white text-center">
           <Shield className="w-12 h-12 mx-auto mb-4 animate-pulse" />
           <p>Checking admin access...</p>
@@ -266,9 +183,9 @@ const AdminDashboard = () => {
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="text-white text-center">
-          <XCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
+          <XCircle className="w-16 h-16 mx-auto mb-4 text-emerald-300" />
           <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
           <p className="text-zinc-400">You don't have permission to access this area.</p>
         </div>
@@ -278,55 +195,26 @@ const AdminDashboard = () => {
 
 
   return (
-    <div className='h-screen bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 flex flex-col'>
+    <div className='h-screen bg-zinc-900 flex flex-col'>
       <AdminTopbar />
       <ScrollArea className='flex-1'>
         <div className="p-6 space-y-8">
           {/* Enhanced Header */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-              </div>
-              <div className="flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-green-400 font-medium">Live</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-zinc-400" />
-                  <span className="text-zinc-400">Last updated: Just now</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-zinc-400" />
-                  <span className="text-zinc-400">Global</span>
-                </div>
-              </div>
-            </div>
+            <div className="space-y-3"></div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              {activeTab === 'dashboard' && (
-                <>
-                  <button 
-                    onClick={generateCSVReport}
-                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    Generate Report
-                  </button>
-                </>
-              )}
-            </div>
+            <div className="flex flex-wrap items-center gap-3"></div>
           </div>
 
-          {/* Navigation Tabs - Only functional features */}
-          <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-2">
+          {/* Navigation Tabs - neutral segmented */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${
                   activeTab === 'dashboard'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                    ? 'bg-zinc-900 text-white border-emerald-700'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900 border-transparent'
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
@@ -334,10 +222,10 @@ const AdminDashboard = () => {
               </button>
               <button
                 onClick={() => setActiveTab('users')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${
                   activeTab === 'users'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                    ? 'bg-zinc-900 text-white border-emerald-700'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900 border-transparent'
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -345,13 +233,23 @@ const AdminDashboard = () => {
               </button>
               <button
                 onClick={() => setActiveTab('artist-verifications')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${
                   activeTab === 'artist-verifications'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-700/50'
+                    ? 'bg-zinc-900 text-white border-emerald-700'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900 border-transparent'
                 }`}
               >
                 Artist Verifications
+              </button>
+              <button
+                onClick={() => setActiveTab('artists')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${
+                  activeTab === 'artists'
+                    ? 'bg-zinc-900 text-white border-emerald-700'
+                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900 border-transparent'
+                }`}
+              >
+                Artists
               </button>
             </div>
           </div>
@@ -359,76 +257,242 @@ const AdminDashboard = () => {
           {/* Conditional Content Based on Active Tab */}
           {activeTab === 'dashboard' && (
             <>
-              {/* Enhanced Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {adminStats.map((stat, index) => (
-                  <div key={index} className={`relative overflow-hidden ${stat.bgColor} backdrop-blur-sm border ${stat.borderColor} rounded-2xl p-6 group hover:scale-105 transition-all duration-300`}>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2">
-                        <p className="text-zinc-400 text-sm font-medium">{stat.label}</p>
-                        <p className="text-3xl font-bold text-white">{stat.value}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-zinc-400">
-                            {stat.change}
-                          </span>
+              {/* Time Range Selector */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Analytics Dashboard</h2>
+                <select
+                  value={range}
+                  onChange={(e) => setRange(e.target.value)}
+                  className="bg-zinc-800 border border-zinc-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="90d">Last 90 days</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Users over time */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold">Users - 30 days</h3>
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics?.usersOverTime || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: 8 }} />
+                        <Legend />
+                        <Line type="monotone" dataKey="total" stroke="#22c55e" strokeWidth={2} dot={false} name="Total" />
+                        <Line type="monotone" dataKey="premium" stroke="#f59e0b" strokeWidth={2} dot={false} name="Premium" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Active users bar chart */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold">Daily Active Users</h3>
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics?.dailyActiveUsers || []}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: 8 }} />
+                        <Bar dataKey="active" fill="#60a5fa" name="Active" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Premium vs Free pie */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold">Account Types</h3>
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={(() => {
+                            const summary = analytics?.accountTypeBreakdown || {};
+                            const free = summary.free || 0;
+                            const premium = summary.premium || 0;
+                            const family = summary.family || 0;
+                            const student = summary.student || 0;
+                            const arr = [
+                              { name: 'Free', value: free },
+                              { name: 'Premium', value: premium },
+                              { name: 'Family', value: family },
+                              { name: 'Student', value: student }
+                            ];
+                            return arr.filter(s => s.value > 0).length ? arr : [
+                              { name: 'Free', value: 1 },
+                              { name: 'Premium', value: 1 }
+                            ];
+                          })()}
+                          dataKey="value"
+                          nameKey="name"
+                          outerRadius={90}
+                          legendType="circle"
+                          label
+                        >
+                          {['#6366f1','#f59e0b','#22c55e','#06b6d4'].map((c, i) => (
+                            <Cell key={i} fill={c} />
+                          ))}
+                        </Pie>
+                        <Legend />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: 8 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Listening time / streams area */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold">Streams</h3>
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={analytics?.streamsOverTime || []}>
+                        <defs>
+                          <linearGradient id="colorStreams" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.6}/>
+                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                        <XAxis dataKey="date" stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <YAxis stroke="#a1a1aa" tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #27272a', borderRadius: 8 }} />
+                        <Area type="monotone" dataKey="streams" stroke="#22c55e" fillOpacity={1} fill="url(#colorStreams)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conclusions Section - Under Charts */}
+              {analytics?.insights && (
+                <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-emerald-400" />
+                    Data Analysis & Conclusions
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* User Growth Conclusion */}
+                    <div className="space-y-3">
+                      <h4 className="text-white font-semibold flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        User Growth
+                      </h4>
+                      <div className="bg-zinc-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-white mb-1">{analytics.insights.totalUsers}</div>
+                        <div className="text-sm text-zinc-400">New users in {range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}</div>
+                        <div className="text-sm text-zinc-300 mt-2">
+                          {analytics.insights.growthRate.startsWith('-') 
+                            ? `Growth declined by ${analytics.insights.growthRate} - review acquisition strategies`
+                            : `Growth increased by ${analytics.insights.growthRate} - positive trend`
+                          }
                         </div>
                       </div>
-                      <div className={`w-16 h-16 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                        <stat.icon className="w-8 h-8 text-white" />
+                    </div>
+
+                    {/* Premium Conversion Conclusion */}
+                    <div className="space-y-3">
+                      <h4 className="text-white font-semibold flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-yellow-400" />
+                        Premium Conversion
+                      </h4>
+                      <div className="bg-zinc-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-emerald-400 mb-1">{analytics.insights.premiumRate}</div>
+                        <div className="text-sm text-zinc-400">Premium conversion rate</div>
+                        <div className="text-sm text-zinc-300 mt-2">
+                          {parseFloat(analytics.insights.premiumRate) > 15 
+                            ? `Strong conversion rate - premium strategy effective`
+                            : `Conversion rate needs improvement - optimize premium value`
+                          }
+                        </div>
                       </div>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+
+                    {/* Engagement Conclusion */}
+                    <div className="space-y-3">
+                      <h4 className="text-white font-semibold flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-green-400" />
+                        User Engagement
+                      </h4>
+                      <div className="bg-zinc-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-blue-400 mb-1">{analytics.insights.avgDailyActive}</div>
+                        <div className="text-sm text-zinc-400">Average daily active users</div>
+                        <div className="text-sm text-zinc-300 mt-2">
+                          {analytics.insights.avgDailyActive > 50 
+                            ? `Healthy engagement levels - good user retention`
+                            : `Low engagement - focus on user activation`
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Account Distribution Conclusion */}
+                    <div className="space-y-3">
+                      <h4 className="text-white font-semibold flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-purple-400" />
+                        Account Distribution
+                      </h4>
+                      <div className="bg-zinc-800/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-purple-400 mb-1 capitalize">{analytics.insights.topAccountType}</div>
+                        <div className="text-sm text-zinc-400">Dominant account type</div>
+                        <div className="text-sm text-zinc-300 mt-2">
+                          {analytics.insights.topAccountType === 'free' 
+                            ? `Most users on free plans - focus on conversion`
+                            : `Strong premium adoption - good product-market fit`
+                          }
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </>
           )}
 
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'artist-verifications' && <ArtistVerifications />}
+          {activeTab === 'artists' && <ArtistManagement />}
 
           {/* Show original dashboard content only when dashboard tab is active */}
           {activeTab === 'dashboard' && (
             <>
-          {/* Quick Actions - Only functional */}
-          <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <Zap className="w-6 h-6 text-yellow-500" />
-                Quick Actions
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                onClick={() => setActiveTab('users')}
-                className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 border border-blue-500/30 rounded-xl transition-all duration-200 group"
-              >
-                <Users className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
-                <span className="text-blue-400 group-hover:text-blue-300 font-medium">Manage Users</span>
-              </button>
-            </div>
-          </div>
+          {/* Removed Quick Actions section */}
 
-          {/* Recent Users - Only functional data */}
-          <div className="bg-zinc-800/30 backdrop-blur-sm border border-zinc-700/50 rounded-2xl p-6">
+          {/* Recent Users */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white flex items-center gap-3">
-                <Users className="w-5 h-5 text-blue-400" />
+                <Users className="w-5 h-5 text-emerald-300" />
                 Recent Users
               </h2>
-              <button onClick={() => setActiveTab('users')} className="text-blue-400 hover:text-blue-300 text-sm font-medium">View All</button>
+              <button onClick={() => setActiveTab('users')} className="text-emerald-300 hover:text-white text-sm font-medium">View All</button>
             </div>
             <div className="space-y-3">
               {recentUsers.length > 0 ? (
                 recentUsers.map((user, index) => (
-                  <div key={`${user.id}-${index}`} className="flex items-center justify-between p-4 bg-zinc-700/20 hover:bg-zinc-700/40 rounded-xl transition-colors group">
+                  <div key={`${user.id}-${index}`} className="flex items-center justify-between p-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg transition-colors group">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-zinc-600/50 rounded-lg flex items-center justify-center">
+                      <div className="w-8 h-8 bg-zinc-900 border border-zinc-800 rounded-md flex items-center justify-center">
                         <span className="text-zinc-300 font-mono text-sm font-medium">
                           {index + 1}
                         </span>
                       </div>
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+                      <div className="w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-md flex items-center justify-center overflow-hidden">
                         {user.avatar ? (
                           <img src={user.avatar} alt={user.name} className="w-12 h-12 object-cover rounded-xl" />
                         ) : (
@@ -438,7 +502,7 @@ const AdminDashboard = () => {
                         )}
                       </div>
                       <div>
-                        <p className="text-white font-medium group-hover:text-blue-300 transition-colors">{user.name}</p>
+                        <p className="text-white font-medium">{user.name}</p>
                         <p className="text-zinc-400 text-sm">{user.email}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Globe className="w-3 h-3 text-zinc-500" />
@@ -446,19 +510,14 @@ const AdminDashboard = () => {
                           {user.isEmailVerified && (
                             <>
                               <span className="text-zinc-600">•</span>
-                              <span className="text-green-400 text-xs">Verified</span>
+                              <span className="text-emerald-300 text-xs">Verified</span>
                             </>
                           )}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.accountType === 'premium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                        user.accountType === 'family' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                        user.accountType === 'student' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                        'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium bg-zinc-900 text-zinc-200 border border-zinc-700`}>
                         {user.accountType}
                       </span>
                       <p className="text-zinc-400 text-xs mt-2">{formatRelative(user.lastLogin)}</p>

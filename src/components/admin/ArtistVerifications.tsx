@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import adminApi from '@/services/adminApi';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Swal from 'sweetalert2';
+import { BarChart3 } from 'lucide-react';
 
 type VerificationItem = {
   _id: string;
@@ -74,7 +75,34 @@ const ArtistVerifications = () => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4">Artist Verifications</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Artist Verifications</h2>
+        <button
+          onClick={() => {
+            const headers = ['ID','Display Name','User','Email','Status','Submitted At'];
+            const rows = items.map(it => [
+              it._id,
+              it.displayName,
+              typeof it.user === 'string' ? it.user : `${it.user.firstName} ${it.user.lastName}`,
+              typeof it.user === 'string' ? '' : (it.user.email || ''),
+              it.status,
+              new Date(it.createdAt).toISOString()
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.map(f => `"${(f ?? '').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'artist-verifications-report.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }}
+          className="flex items-center gap-2 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md text-zinc-200"
+        >
+          <BarChart3 className="w-4 h-4" />
+          Generate Report
+        </button>
+      </div>
       {loading ? (
         <div className="text-zinc-400">Loading…</div>
       ) : items.length === 0 ? (

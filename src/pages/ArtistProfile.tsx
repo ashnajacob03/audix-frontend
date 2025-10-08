@@ -109,7 +109,9 @@ const ArtistProfile: React.FC = () => {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button onClick={handlePlayAll}><Play className="h-4 w-4 mr-1.5" /> Play</Button>
                   <Button variant="secondary" onClick={handleShuffle}><Shuffle className="h-4 w-4 mr-1.5" /> Shuffle</Button>
-                  {artist.isFollowing ? null : (
+                  {artist.isFollowing ? (
+                    <Button variant="outline" disabled={busy}>Message</Button>
+                  ) : (
                     <Button variant="secondary" disabled={busy} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(); }}>Follow</Button>
                   )}
                 </div>

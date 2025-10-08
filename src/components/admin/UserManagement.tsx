@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Loader2
+  Loader2,
+  BarChart3
 } from 'lucide-react';
 
 interface User {
@@ -304,6 +305,35 @@ const UserManagement = () => {
               </button>
             </div>
           )}
+          
+          <button
+            onClick={async () => {
+              const headers = ['#','Name','Email','Account Type','Verified','Admin','Joined','Last Login','Active'];
+              const csvRows = users.map((u, idx) => [
+                String((currentPage - 1) * 20 + idx + 1),
+                u.name || '',
+                u.email || '',
+                u.accountType || '',
+                u.isEmailVerified ? 'Yes' : 'No',
+                u.isAdmin ? 'Yes' : 'No',
+                u.joinedAt ? new Date(u.joinedAt).toISOString() : '',
+                u.lastLogin ? new Date(u.lastLogin).toISOString() : '',
+                u.isActive ? 'Yes' : 'No'
+              ]);
+              const content = [headers.join(','), ...csvRows.map(r => r.map(f => `"${(f ?? '').toString().replace(/"/g,'""')}"`).join(','))].join('\n');
+              const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = `users-report-page-${currentPage}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+            className="flex items-center gap-2 px-3 py-2 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 rounded-lg text-zinc-200 transition-colors"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Generate Report
+          </button>
           
         </div>
       </div>

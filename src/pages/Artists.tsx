@@ -13,8 +13,24 @@ type ArtistItem = {
   isFollowing?: boolean;
 };
 
+const LOCAL_FOLLOWS_KEY = 'audix_local_followed_artists';
+const loadLocalFollows = (userId?: string | null): Set<string> => {
+  try {
+    const key = `${LOCAL_FOLLOWS_KEY}:${userId || 'anon'}`;
+    const raw = sessionStorage.getItem(key) || '[]';
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch { return new Set(); }
+};
+const saveLocalFollows = (userId: string | null | undefined, names: Set<string>) => {
+  try {
+    const key = `${LOCAL_FOLLOWS_KEY}:${userId || 'anon'}`;
+    sessionStorage.setItem(key, JSON.stringify(Array.from(names)));
+  } catch {}
+};
+
 const ArtistsPage: React.FC = () => {
-  const { isAuthenticated } = useCustomAuth();
+  const { isAuthenticated, user } = useCustomAuth();
   const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +38,7 @@ const ArtistsPage: React.FC = () => {
   const [pages, setPages] = useState(1);
   const [search, setSearch] = useState('');
   const [busyName, setBusyName] = useState<string | null>(null);
+  const [hoveredName, setHoveredName] = useState<string | null>(null);
 
   const debouncedSearch = useMemo(() => search, [search]);
 
@@ -37,7 +54,14 @@ const ArtistsPage: React.FC = () => {
     setError(null);
     try {
       const res = await apiService.get('/music/artists', { params: { page: pg, limit: 24, search: debouncedSearch } });
-      setArtists(res?.artists || []);
+      const serverArtists: ArtistItem[] = res?.artists || [];
+      // Merge with local follows to ensure button stability per-user
+      const local = loadLocalFollows(user?.id);
+      const merged = serverArtists.map(a => ({
+        ...a,
+        isFollowing: a.isFollowing || local.has(a.name)
+      }));
+      setArtists(merged);
       setPages(res?.pagination?.pages || 1);
     } catch (e: any) {
       setError(e?.message || 'Failed to load artists');
@@ -62,6 +86,7 @@ const ArtistsPage: React.FC = () => {
     setBusyName(name);
     // Determine current state
     let wasFollowing = false;
+    const local = loadLocalFollows(user?.id);
     setArtists(prev => prev.map(a => {
       if (a.name !== name) return a;
       wasFollowing = !!a.isFollowing;
@@ -88,6 +113,11 @@ const ArtistsPage: React.FC = () => {
           }
           return { ...a, isFollowing: finalFollowing, followerCount };
         }));
+        // Persist locally for stability across refresh
+        if (finalFollowing) { local.add(name); } else { local.delete(name); }
+        saveLocalFollows(user?.id, local);
+        // Ensure server truth by refetching the current page
+        await fetchArtists(page);
       }
     } catch (e) {
       // Revert on error
@@ -96,6 +126,13 @@ const ArtistsPage: React.FC = () => {
         const revertedCount = Math.max(0, (a.followerCount || 0) + (wasFollowing ? 1 : -1));
         return { ...a, isFollowing: wasFollowing, followerCount: revertedCount };
       }));
+      // Revert local storage
+      if (wasFollowing) {
+        local.add(name);
+      } else {
+        local.delete(name);
+      }
+      saveLocalFollows(user?.id, local);
     } finally {
       setBusyName(null);
     }
@@ -164,7 +201,18 @@ const ArtistsPage: React.FC = () => {
               <div className="text-sm text-zinc-400 mb-3" title={`${artist.songCount} songs • ${artist.followerCount || 0} followers`}>
                 {artist.songCount} songs • {formatCount(artist.followerCount)} followers
               </div>
-              {artist.isFollowing ? null : (
+              {artist.isFollowing ? (
+                <Button
+                  onMouseEnter={() => setHoveredName(artist.name)}
+                  onMouseLeave={() => setHoveredName((n) => (n === artist.name ? null : n))}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(artist.name); }}
+                  disabled={busyName === artist.name}
+                  className="w-full"
+                  variant={hoveredName === artist.name ? 'outline' : 'secondary'}
+                >
+                  {hoveredName === artist.name ? 'Unfollow' : 'Following'}
+                </Button>
+              ) : (
                 <Button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(artist.name); }}
                   disabled={busyName === artist.name}

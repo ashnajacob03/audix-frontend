@@ -120,6 +120,44 @@ const adminApi = {
     }
   },
 
+  // Artists (Admin)
+  getArtists: async (params = {}) => {
+    try {
+      const response = await api.get('/admin/artists', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching artists:', error);
+      throw error;
+    }
+  },
+  createArtist: async (payload) => {
+    try {
+      const response = await api.post('/admin/artists', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating artist:', error);
+      throw error;
+    }
+  },
+  updateArtist: async (id, payload) => {
+    try {
+      const response = await api.put(`/admin/artists/${id}`, payload);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating artist:', error);
+      throw error;
+    }
+  },
+  deleteArtist: async (id) => {
+    try {
+      const response = await api.delete(`/admin/artists/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting artist:', error);
+      throw error;
+    }
+  }
+
 };
 
 export default adminApi; 

@@ -28,6 +28,29 @@ const AdminTopbar = () => {
   const { userProfile } = useUserProfile();
   const { logout } = useLogout();
 
+  const handleBackToApp = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        await fetch('http://localhost:3002/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(() => {});
+      }
+    } catch {}
+    finally {
+      // Clear client auth state and redirect to public landing
+      localStorage.removeItem('user');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('mongoUser');
+      window.location.href = '/';
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-700/50 sticky top-0 z-50">
       {/* Left side - Admin branding */}
@@ -48,8 +71,8 @@ const AdminTopbar = () => {
 
       {/* Center - Navigation */}
       <div className="flex items-center gap-2">
-        <Link
-          to="/"
+        <button
+          onClick={handleBackToApp}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
             "text-zinc-300 hover:text-white hover:bg-zinc-800"
@@ -57,7 +80,7 @@ const AdminTopbar = () => {
         >
           <Home className="w-4 h-4 mr-2" />
           Back to App
-        </Link>
+        </button>
       </div>
 
       {/* Right side - Admin profile */}
@@ -103,13 +126,13 @@ const AdminTopbar = () => {
             
             
             <DropdownMenuItem asChild>
-              <Link 
-                to="/" 
-                className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer"
+              <button
+                onClick={handleBackToApp}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 cursor-pointer w-full text-left"
               >
                 <Home className="w-4 h-4" />
                 Back to App
-              </Link>
+              </button>
             </DropdownMenuItem>
             
             <DropdownMenuItem asChild>

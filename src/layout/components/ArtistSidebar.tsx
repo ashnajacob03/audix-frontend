@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music2, BarChart3, Users, Globe2, Wallet2, Megaphone, MessageSquare, Settings } from "lucide-react";
+import { Music2, BarChart3, Users, Globe2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NavItem = ({ to, icon: Icon, label }: { to: string; icon: any; label: string }) => {
@@ -37,12 +37,7 @@ const ArtistSidebar = () => {
       <nav className="p-3 space-y-1">
         <NavItem to="/artist" icon={BarChart3} label="Overview" />
         <NavItem to="/artist/music" icon={Music2} label="Music" />
-        <NavItem to="/artist/analytics" icon={BarChart3} label="Analytics" />
         <NavItem to="/artist/audience" icon={Users} label="Audience" />
-        <NavItem to="/artist/revenue" icon={Wallet2} label="Revenue" />
-        <NavItem to="/artist/marketing" icon={Megaphone} label="Marketing" />
-        <NavItem to="/artist/fans" icon={MessageSquare} label="Fans" />
-        <NavItem to="/artist/settings" icon={Settings} label="Settings" />
       </nav>
 
       <div className="mt-auto p-3 text-xs text-zinc-500">

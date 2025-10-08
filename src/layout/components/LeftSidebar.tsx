@@ -185,17 +185,12 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 								</Link>
 							);
 						// If artist, show Artist-specific menus directly
-						if ((userProfile as any)?.isArtist) {
-							const artistLinks = [
-								{ key: 'artist-overview', to: '/artist', label: 'Artist Overview', icon: BarChart2 },
-								{ key: 'artist-music', to: '/artist/music', label: 'Music', icon: Music2 },
-								{ key: 'artist-analytics', to: '/artist/analytics', label: 'Analytics', icon: BarChart2 },
-								{ key: 'artist-audience', to: '/artist/audience', label: 'Audience', icon: Users },
-								{ key: 'artist-revenue', to: '/artist/revenue', label: 'Revenue', icon: Wallet2 },
-								{ key: 'artist-marketing', to: '/artist/marketing', label: 'Marketing', icon: Megaphone },
-								{ key: 'artist-fans', to: '/artist/fans', label: 'Fans', icon: MessageSquare },
-								{ key: 'artist-settings', to: '/artist/settings', label: 'Artist Settings', icon: Settings },
-							];
+                        if ((userProfile as any)?.isArtist) {
+                            const artistLinks = [
+                                { key: 'artist-overview', to: '/artist', label: 'Artist Overview', icon: BarChart2 },
+                                { key: 'artist-music', to: '/artist/music', label: 'Music', icon: Music2 },
+                                { key: 'artist-audience', to: '/artist/audience', label: 'Audience', icon: Users },
+                            ];
 							artistLinks.forEach(({ key, to, label, icon: Icon }) => {
 								navItems.push(
 									<Link

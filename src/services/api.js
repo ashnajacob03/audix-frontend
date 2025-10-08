@@ -552,9 +552,19 @@ class ApiService {
     return this.post(`/user/follow-artist${qs}`, { name }, options);
   }
 
+  async getArtistContact(name, options = {}) {
+    const encoded = encodeURIComponent(name);
+    return this.get(`/user/artist-contact/${encoded}`, options);
+  }
+
   async getArtistProfile(name) {
     const encoded = encodeURIComponent(name);
     return this.get(`/music/artist/${encoded}`);
+  }
+
+  async getArtistAnalytics(name) {
+    const encoded = encodeURIComponent(name);
+    return this.get(`/music/artist/${encoded}/analytics`);
   }
 
   // ===== PLAYLIST API METHODS =====

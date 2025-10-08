@@ -18,11 +18,13 @@ const FallbackImage = ({
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [currentSrc, setCurrentSrc] = useState(src);
+  const [attempt, setAttempt] = useState(0);
 
   // Reset error state when src changes
   useEffect(() => {
     setImageError(false);
     setImageLoading(true);
+    setAttempt((n) => n + 1);
     if (!src) {
       // If no source provided, immediately use fallback
       const offlineFallback = generateInlineFallback(fallbackSeed);
@@ -45,6 +47,19 @@ const FallbackImage = ({
       }
     }
   }, [src]);
+
+  // Safety timeout: if the image hasn't loaded within 4s, swap to fallback
+  useEffect(() => {
+    if (!imageLoading) return;
+    const timer = setTimeout(() => {
+      if (imageLoading) {
+        const offlineSafe = navigator.onLine ? getFallbackImage(fallbackSeed) : generateInlineFallback(fallbackSeed);
+        setCurrentSrc(offlineSafe);
+        // keep imageLoading true; it will flip to false when fallback loads
+      }
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [imageLoading, attempt]);
 
   // Array of high-quality music-themed fallback images from Unsplash
   const fallbackImages = [
@@ -120,6 +135,8 @@ const FallbackImage = ({
         onError={handleImageError}
         onLoad={handleImageLoad}
         loading="lazy"
+        crossOrigin="anonymous"
+        referrerPolicy="no-referrer"
       />
     </div>
   );
