@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, CheckCircle, AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
-import { ValidationResult } from '../../utils/validation';
+import type { ValidationResult } from '../../utils/validation';
 
 interface EnhancedValidationInputProps {
   id: string;

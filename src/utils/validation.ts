@@ -7,6 +7,7 @@ export interface ValidationResult {
   isValid: boolean;
   message: string;
   field?: string;
+  severity?: 'error' | 'warning' | 'info';
 }
 
 // Interface for form validation results
@@ -323,6 +324,23 @@ export const getPasswordStrength = (password: string): { score: number; label: s
   };
 };
 
+/**
+ * Debounce utility function
+ */
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
 export default {
   validateEmail,
   validateEmailDomain,
@@ -330,5 +348,6 @@ export default {
   validateName,
   validatePasswordConfirmation,
   validateRegistrationForm,
-  getPasswordStrength
+  getPasswordStrength,
+  debounce
 };

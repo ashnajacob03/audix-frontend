@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSocket } from '@/contexts/SocketContext';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserAvatar from '@/components/UserAvatar';
-import { X, Share2, Search, Check, Link as LinkIcon, Copy, MessageCircle, Facebook, Twitter, Send } from 'lucide-react';
+import { X, Share2, Search, Check, Link as LinkIcon, MessageCircle, Facebook, Twitter, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 

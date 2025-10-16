@@ -5,8 +5,6 @@ import { buttonVariants } from './ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import {
@@ -40,7 +38,7 @@ interface NotificationDropdownProps {
   authToken: string;
 }
 
-const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, authToken }) => {
+const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ authToken }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -399,7 +397,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                           {notification.type === 'new_song' && notification.data?.songId && (
                             <div className="mt-2">
                               <button
-                                onClick={() => handlePlaySongFromNotification(notification.data.songId)}
+                                onClick={() => handlePlaySongFromNotification(notification.data?.songId)}
                                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
                               >
                                 Listen to song

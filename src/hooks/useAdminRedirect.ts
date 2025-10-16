@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
 import { useUserProfile } from './useUserProfile';
 
 export const useAdminRedirect = () => {
   const navigate = useNavigate();
-  const { user } = useUser();
   const { userProfile, isLoading } = useUserProfile();
 
   useEffect(() => {
@@ -13,8 +11,8 @@ export const useAdminRedirect = () => {
     if (isLoading) return;
 
     const checkAdminStatus = () => {
-      // Check if user is admin from MongoDB data first, then Clerk data
-      const userEmail = userProfile?.email || user?.emailAddresses[0]?.emailAddress;
+      // Check if user is admin from MongoDB data
+      const userEmail = userProfile?.email;
       const isAdmin = userProfile?.isAdmin || false;
       
       // Admin email from environment (hardcoded for frontend check)
@@ -28,13 +26,13 @@ export const useAdminRedirect = () => {
     };
 
     // Only check after user data is loaded
-    if (user || userProfile) {
+    if (userProfile) {
       checkAdminStatus();
     }
-  }, [user, userProfile, isLoading, navigate]);
+  }, [userProfile, isLoading, navigate]);
 
   return {
     isAdmin: userProfile?.isAdmin || false,
-    adminEmail: userProfile?.email || user?.emailAddresses[0]?.emailAddress
+    adminEmail: userProfile?.email
   };
 };

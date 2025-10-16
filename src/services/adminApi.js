@@ -113,34 +113,6 @@ const adminApi = {
     }
   },
 
-  // Artist verifications
-  getArtistVerifications: async () => {
-    try {
-      const response = await api.get('/admin/artist-verifications');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching artist verifications:', error);
-      throw error;
-    }
-  },
-  approveArtistVerification: async (id) => {
-    try {
-      const response = await api.post(`/admin/artist-verifications/${id}/approve`);
-      return response.data;
-    } catch (error) {
-      console.error('Error approving artist:', error);
-      throw error;
-    }
-  },
-  rejectArtistVerification: async (id, notes) => {
-    try {
-      const response = await api.post(`/admin/artist-verifications/${id}/reject`, { notes });
-      return response.data;
-    } catch (error) {
-      console.error('Error rejecting artist:', error);
-      throw error;
-    }
-  },
 
   // Artists (Admin)
   getArtists: async (params = {}) => {
@@ -176,6 +148,35 @@ const adminApi = {
       return response.data;
     } catch (error) {
       console.error('Error deleting artist:', error);
+      throw error;
+    }
+  },
+
+  // Artist verifications
+  getArtistVerifications: async () => {
+    try {
+      const response = await api.get('/admin/artist-verifications', { suppressAuthRedirect: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching artist verifications:', error);
+      throw error;
+    }
+  },
+  approveArtistVerification: async (id) => {
+    try {
+      const response = await api.post(`/admin/artist-verifications/${id}/approve`, {}, { suppressAuthRedirect: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error approving artist verification:', error);
+      throw error;
+    }
+  },
+  rejectArtistVerification: async (id, notes) => {
+    try {
+      const response = await api.post(`/admin/artist-verifications/${id}/reject`, { notes }, { suppressAuthRedirect: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error rejecting artist verification:', error);
       throw error;
     }
   }

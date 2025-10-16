@@ -82,7 +82,6 @@ const FallbackImage = ({
   const generateInlineFallback = (seed: string | number) => {
     const hash = (typeof seed === 'string' ? seed : String(seed)).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
     const hue = hash % 360;
-    const grad = `linear-gradient(135deg, hsl(${hue},30%,30%), hsl(${(hue+40)%360},30%,20%))`;
     // Simple 1x1 SVG with gradient-like rectangle (approx via two rects)
     const svg = encodeURIComponent(
       `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'>

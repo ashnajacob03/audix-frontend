@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-import { ValidationResult, debounce } from '../utils/validation';
+import { useState, useCallback } from 'react';
+import type { ValidationResult } from '../utils/validation';
+import { debounce } from '../utils/validation';
 
 export interface ValidationRule {
   validator: (value: string, formData?: any) => ValidationResult;

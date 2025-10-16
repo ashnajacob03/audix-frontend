@@ -69,8 +69,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState<Map<string, UserStatus>>(new Map());
   const [typingUsers, setTypingUsers] = useState<Map<string, TypingUser>>(new Map());
   
-  const typingTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<Map<string, number>>(new Map());
+  const reconnectTimeoutRef = useRef<number>();
 
   useEffect(() => {
     // Don't try to connect during loading or if not authenticated

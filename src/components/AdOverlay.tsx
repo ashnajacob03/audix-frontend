@@ -23,7 +23,6 @@ const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc, ad }) => 
   const currentAdData = ad || currentAd;
   
   // Determine user type for messaging
-  const isPremium = !!user && (user.accountType === 'premium');
   const isUnauthenticated = !isAuthenticated;
 
   // Use ad video if available, otherwise fallback
