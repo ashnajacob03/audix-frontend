@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Home
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
 import UserAvatar from "./UserAvatar";
@@ -16,7 +15,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 

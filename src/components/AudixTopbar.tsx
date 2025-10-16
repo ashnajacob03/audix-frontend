@@ -1,7 +1,6 @@
 
-import { Crown, Search, User, BarChart3, Heart, Music, ChevronDown, LogOut, Settings, XCircle } from "lucide-react";
+import { Crown, Search, User, Heart, Music, ChevronDown, LogOut, Settings, XCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useLogout } from "@/hooks/useLogout";
 import { useCustomAuth } from "@/contexts/AuthContext";

@@ -39,7 +39,6 @@ import Song from './pages/Song';
 
 import MainLayout from './layout/MainLayout';
 import AdminLayout from './layout/AdminLayout';
-import ArtistLayout from './layout/ArtistLayout';
 import AdminRedirectRoute from './components/AdminRedirectRoute';
 import { Toaster } from 'react-hot-toast';
 

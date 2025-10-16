@@ -80,8 +80,6 @@ const FallbackImage = ({
 
   // Generate an inline SVG data URL as an offline-safe placeholder
   const generateInlineFallback = (seed: string | number) => {
-    const bg = '#27272a';
-    const fg = '#3f3f46';
     const hash = (typeof seed === 'string' ? seed : String(seed)).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
     const hue = hash % 360;
     const grad = `linear-gradient(135deg, hsl(${hue},30%,30%), hsl(${(hue+40)%360},30%,20%))`;
