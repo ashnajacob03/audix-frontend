@@ -91,11 +91,12 @@ export const SkipLimitModal: React.FC<SkipLimitModalProps> = ({
           </Button>
           <Button
             asChild
-            className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+            className="flex-1 bg-gradient-to-r from-emerald-700 to-gray-800 hover:from-emerald-600 hover:to-gray-700 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 border border-emerald-600/40 hover:border-emerald-500/60 hover:scale-105 hover:-translate-y-0.5 active:scale-95 group relative overflow-hidden"
           >
-            <Link to="/premium">
-              <Crown className="h-4 w-4 mr-2" />
-              Go Premium
+            <Link to="/premium" className="relative z-10 flex items-center justify-center">
+              <div className="absolute inset-0 -top-1 -left-1 w-[calc(100%+8px)] h-[calc(100%+8px)] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300"></div>
+              <Crown className="h-4 w-4 mr-2 relative z-10" />
+              <span className="relative z-10">Upgrade to Premium</span>
             </Link>
           </Button>
         </div>

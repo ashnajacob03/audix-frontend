@@ -937,8 +937,9 @@ const Settings = () => {
                               {accountType === 'premium' ? 'Premium' : 'Free'}
                             </span>
                             {accountType !== 'premium' ? (
-                              <button onClick={() => navigate('/premium')} className="px-4 py-2 rounded-md border border-zinc-700 text-zinc-200 hover:bg-zinc-800 transition-colors">
-                                Upgrade to Premium
+                              <button onClick={() => navigate('/premium')} className="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-700 to-gray-800 hover:from-emerald-600 hover:to-gray-700 text-white font-semibold border border-emerald-600/40 hover:border-emerald-500/60 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 group relative overflow-hidden">
+                                <div className="absolute inset-0 -top-1 -left-1 w-[calc(100%+8px)] h-[calc(100%+8px)] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300"></div>
+                                <span className="relative z-10">Upgrade to Premium</span>
                               </button>
                             ) : (
                               <button onClick={handleCancelPremiumClick} className="px-4 py-2 rounded-md border border-red-700 text-red-400 hover:bg-red-900/20 transition-colors">

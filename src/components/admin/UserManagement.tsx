@@ -4,7 +4,6 @@ import {
   Users,
   Search,
   Filter,
-  MoreVertical,
   Edit,
   Crown,
   UserCheck,
@@ -13,18 +12,21 @@ import {
   Globe,
   Activity,
   Shield,
-  Plus,
   Trash2,
   AlertTriangle,
   CheckCircle,
   XCircle,
   Loader2,
-  BarChart3
+  BarChart3,
+  UserX,
+  UserPlus
 } from 'lucide-react';
 
 interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   avatar: string | null;
   accountType: 'free' | 'premium' | 'family' | 'student';
@@ -61,16 +63,20 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await adminApi.getUsers({
+      console.log('Fetching users from server...');
+      const response = await (adminApi as any).getUsers({
         page: currentPage,
         limit: 20,
         search: searchTerm
       });
       
-      // adminApi returns response.data from the API, so response already has { users, pagination }
-      setUsers(response.users);
-      setTotalPages(response.pagination.pages);
-      setTotalUsersCount(response.pagination.total);
+      console.log('Fetched users response:', response);
+      console.log('Users data:', response.users);
+      
+      // adminApi returns the response directly, so we access response.users
+      setUsers(response.users || []);
+      setTotalPages(response.pagination?.pages || 1);
+      setTotalUsersCount(response.pagination?.total || 0);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -84,11 +90,49 @@ const UserManagement = () => {
       setUpdating(true);
       setError(null);
       console.log('Updating user:', userId, updates);
-      const result = await adminApi.updateUser(userId, updates);
+      
+      // Map the form data to the correct backend format
+      const backendUpdates = {
+        firstName: updates.firstName || '',
+        lastName: updates.lastName || '',
+        email: updates.email,
+        accountType: updates.accountType,
+        isAdmin: updates.isAdmin,
+        isEmailVerified: updates.isEmailVerified,
+        isActive: updates.isActive
+      };
+      
+      console.log('Sending backend updates:', backendUpdates);
+      console.log('User ID being updated:', userId);
+      const result = await (adminApi as any).updateUser(userId, backendUpdates);
       console.log('Update result:', result);
+      console.log('Update success:', result?.success);
+      console.log('Updated user data from API:', result?.data?.user);
+      console.log('Full API response:', JSON.stringify(result, null, 2));
+      
+      // Update the user in the local state immediately for better UX
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId 
+            ? {
+                ...user,
+                name: `${backendUpdates.firstName} ${backendUpdates.lastName}`.trim(),
+                email: backendUpdates.email || user.email,
+                accountType: backendUpdates.accountType || user.accountType,
+                isAdmin: backendUpdates.isAdmin !== undefined ? backendUpdates.isAdmin : user.isAdmin,
+                isEmailVerified: backendUpdates.isEmailVerified !== undefined ? backendUpdates.isEmailVerified : user.isEmailVerified,
+                isActive: backendUpdates.isActive !== undefined ? backendUpdates.isActive : user.isActive
+              }
+            : user
+        )
+      );
+      
       setSuccess('User updated successfully');
-      await fetchUsers();
       setShowUserModal(false);
+      
+      // Also refresh from server to ensure data consistency
+      console.log('Refreshing users from server...');
+      await fetchUsers();
     } catch (error: any) {
       console.error('Update error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to update user';
@@ -103,7 +147,7 @@ const UserManagement = () => {
       setDeleting(true);
       setError(null);
       console.log('Deleting user:', userId);
-      const result = await adminApi.deleteUser(userId);
+      const result = await (adminApi as any).deleteUser(userId);
       console.log('Delete result:', result);
       setSuccess('User deleted successfully');
       await fetchUsers();
@@ -122,7 +166,7 @@ const UserManagement = () => {
     try {
       setDeleting(true);
       setError(null);
-      await adminApi.bulkDeleteUsers(selectedUsers);
+      await (adminApi as any).bulkDeleteUsers(selectedUsers);
       setSuccess(`${selectedUsers.length} users deleted successfully`);
       await fetchUsers();
       setSelectedUsers([]);
@@ -139,7 +183,7 @@ const UserManagement = () => {
     try {
       setUpdating(true);
       setError(null);
-      await adminApi.bulkUpdateUsers(selectedUsers, updates);
+      await (adminApi as any).bulkUpdateUsers(selectedUsers, updates);
       setSuccess(`${selectedUsers.length} users updated successfully`);
       await fetchUsers();
       setSelectedUsers([]);
@@ -147,6 +191,34 @@ const UserManagement = () => {
       setBulkAction(null);
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to update users');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleActivateUser = async (userId: string) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      await (adminApi as any).activateUser(userId);
+      setSuccess('User activated successfully. Email notification sent.');
+      await fetchUsers();
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to activate user');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeactivateUser = async (userId: string) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      await (adminApi as any).deactivateUser(userId);
+      setSuccess('User deactivated successfully. Email notification sent.');
+      await fetchUsers();
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to deactivate user');
     } finally {
       setUpdating(false);
     }
@@ -465,16 +537,25 @@ const UserManagement = () => {
                           >
                             <Edit className="w-4 h-4 text-blue-400" />
                           </button>
-                          <button
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setShowDeleteModal(true);
-                            }}
-                            className="p-2 hover:bg-zinc-700/50 rounded-lg transition-colors"
-                            title="Delete user"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-400" />
-                          </button>
+                          {user.isAccountActive === false ? (
+                            <button
+                              onClick={() => handleActivateUser(user.id)}
+                              disabled={updating}
+                              className="p-2 hover:bg-green-700/20 rounded-lg transition-colors disabled:opacity-50"
+                              title="Activate user"
+                            >
+                              <UserPlus className="w-4 h-4 text-green-400" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeactivateUser(user.id)}
+                              disabled={updating}
+                              className="p-2 hover:bg-red-700/20 rounded-lg transition-colors disabled:opacity-50"
+                              title="Deactivate user"
+                            >
+                              <UserX className="w-4 h-4 text-red-400" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -576,8 +657,22 @@ const EditUserModal = ({ user, onClose, onSubmit, loading }: {
     isActive: user.isActive
   });
 
+  // Update form data when user changes
+  useEffect(() => {
+    setFormData({
+      firstName: user.name.split(' ')[0] || '',
+      lastName: user.name.split(' ').slice(1).join(' ') || '',
+      email: user.email,
+      accountType: user.accountType,
+      isAdmin: user.isAdmin,
+      isEmailVerified: user.isEmailVerified,
+      isActive: user.isActive
+    });
+  }, [user]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted with data:', formData);
     onSubmit(formData);
   };
 

@@ -16,6 +16,8 @@ import {
   TooltipTrigger,
 } from './ui/tooltip';
 import { ScrollArea } from './ui/scroll-area';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import api from '@/services/api';
 
 interface Notification {
   _id: string;
@@ -43,8 +45,26 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const { playSong } = useAudioPlayer();
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+
+  // Handle playing song from notification
+  const handlePlaySongFromNotification = async (songId: string) => {
+    try {
+      // Fetch song details
+      const response = await api.get(`/music/songs/${songId}`);
+      const song = response.data;
+      
+      // Play the song directly
+      playSong(song);
+      
+      // Close the notification dropdown
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error playing song from notification:', error);
+    }
+  };
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -379,10 +399,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ userId, aut
                           {notification.type === 'new_song' && notification.data?.songId && (
                             <div className="mt-2">
                               <button
-                                onClick={() => {
-                                  // Navigate to the song page
-                                  window.location.href = `/song/${notification.data.songId}`;
-                                }}
+                                onClick={() => handlePlaySongFromNotification(notification.data.songId)}
                                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
                               >
                                 Listen to song

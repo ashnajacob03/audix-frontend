@@ -83,6 +83,20 @@ class ApiService {
           
           // Handle token expiration: try one refresh then retry original request once
           if (response.status === 401) {
+            // Check for account deactivation
+            if (data && data.code === 'ACCOUNT_DEACTIVATED') {
+              if (!options.suppressAuthRedirect) {
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+                localStorage.removeItem('mongoUser');
+                // Show deactivation message and redirect
+                alert('Your account has been deactivated by an administrator. Please contact support for assistance.');
+                window.location.href = '/login';
+              }
+              throw new Error(data.message || 'Account deactivated');
+            }
+            
             const storedRefresh = localStorage.getItem('refreshToken');
             if (storedRefresh && !refreshedOnce) {
               try {

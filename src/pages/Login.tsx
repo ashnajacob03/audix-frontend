@@ -91,8 +91,8 @@ const Login = () => {
             } else if (data.code === 'INVALID_PASSWORD') {
               setError('The password you entered is incorrect. Please try again or reset your password.');
               setErrorType('auth');
-            } else if (data.message?.includes('deactivated')) {
-              setError('Your account has been deactivated. Please contact support for assistance.');
+            } else if (data.code === 'ACCOUNT_DEACTIVATED') {
+              setError(`Your account has been deactivated by an administrator. Please contact our support team for assistance.\n\nAdmin Contact:\nPhone: ${data.adminContact?.phone || '9061493022'}\nEmail: ${data.adminContact?.email || 'ashnajacob003@gmail.com'}`);
               setErrorType('auth');
             } else {
               setError(data.message || 'Authentication failed. Please check your credentials and try again.');
@@ -118,9 +118,6 @@ const Login = () => {
         setIsLoading(false);
         return;
       }
-      // Use custom auth context to store user data
-      login(data.data.user, data.data.tokens);
-      
       console.log('MongoDB authentication successful');
       console.log('User data:', data.data.user);
       console.log('Tokens:', data.data.tokens);
@@ -134,9 +131,20 @@ const Login = () => {
       setTwoFactorStep(false);
       setTwoFactorCode('');
 
-      // Check if user is admin and redirect accordingly
+      // Check if user is admin and set admin status in user data
       const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'ashnajacob003@gmail.com';
-      if (email === ADMIN_EMAIL) {
+      const isAdmin = email === ADMIN_EMAIL;
+      
+      // Update user data with admin status
+      const updatedUserData = {
+        ...data.data.user,
+        isAdmin: isAdmin
+      };
+      
+      // Store updated user data
+      login(updatedUserData, data.data.tokens);
+      
+      if (isAdmin) {
         console.log('Admin user detected in login, redirecting to admin dashboard');
         navigate('/admin', { replace: true });
       } else {
@@ -198,8 +206,8 @@ const Login = () => {
             }`}>
               <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium leading-relaxed">{error}</p>
-                {errorType === 'auth' && (
+                <div className="text-sm font-medium leading-relaxed whitespace-pre-line">{error}</div>
+                {errorType === 'auth' && !error.includes('deactivated') && (
                   <div className="mt-3 pt-3 border-t border-current/20">
                     {error.includes('No account found') ? (
                       <p className="text-xs opacity-80">

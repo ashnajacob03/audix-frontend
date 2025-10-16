@@ -156,21 +156,6 @@ const LeftSidebar = ({ onCollapse }: { onCollapse?: () => void }) => {
 							);
 							navItems.push(
 								<Link
-									key="profile"
-									to={"/profile"}
-									className={cn(
-										buttonVariants({
-											variant: "ghost",
-											className: "w-full justify-start text-white hover:bg-zinc-800",
-										})
-									)}
-								>
-									<BarChart2 className='mr-2 size-5' />
-									<span className='hidden md:inline'>Activity</span>
-								</Link>
-							);
-							navItems.push(
-								<Link
 									key="artists"
 									to={"/artists"}
 									className={cn(

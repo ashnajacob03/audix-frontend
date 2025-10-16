@@ -290,7 +290,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 	}
 
     return (
-        <div className='h-full rounded-xl bg-gradient-to-b from-zinc-900 to-black p-4 flex flex-col border border-zinc-800/60 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]'>
+        <div className='h-full rounded-xl bg-zinc-900 p-4 flex flex-col border border-zinc-800/60 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]'>
             <div className='flex items-center justify-between mb-4'>
 				<div className='flex items-center gap-2'>
 					<Users className='size-5 text-white' />
@@ -343,8 +343,8 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 									return (
 								<div>
 									<div className='flex items-center gap-2 mb-3'>
-												<UserCheck className='size-4 text-green-500' />
-										<h3 className='text-xs font-semibold uppercase tracking-wider text-green-500'>Following People</h3>
+												<UserCheck className='size-4 text-zinc-300' />
+										<h3 className='text-xs font-semibold uppercase tracking-wider text-zinc-300'>Following People</h3>
 										<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{followingUsers.length}
 												</span>
@@ -390,7 +390,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 																	</button>
 																	<button
 																		onClick={() => navigate(`/messages?friendId=${user.id}`)}
-													className='px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-[#1db954] text-black hover:bg-[#1ed760] hover:scale-105'
+													className='px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-zinc-700 text-white hover:bg-zinc-600 hover:scale-105'
 																	>
 																		<Send className='size-3' />
 																		<span>Message</span>
@@ -418,8 +418,8 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 									return (
 									<div>
 										<div className='flex items-center gap-2 mb-3'>
-												<ClockIcon className='size-4 text-orange-500' />
-											<h3 className='text-xs font-semibold uppercase tracking-wider text-orange-500'>Requested People</h3>
+												<ClockIcon className='size-4 text-zinc-300' />
+											<h3 className='text-xs font-semibold uppercase tracking-wider text-zinc-300'>Requested People</h3>
 											<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{requestedUsers.length}
 												</span>
@@ -456,7 +456,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 												className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-all duration-200 ${
 													processingRequests.has(user.id) 
 														? 'bg-zinc-800 text-white cursor-not-allowed opacity-70' 
-														: 'bg-orange-600 text-white hover:bg-red-600 hover:scale-105 group'
+														: 'bg-zinc-700 text-white hover:bg-zinc-600 hover:scale-105 group'
 												}`}
 												disabled={processingRequests.has(user.id)}
 											>
@@ -489,8 +489,8 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 									return (
 										<div>
 											<div className='flex items-center gap-2 mb-3'>
-												<UserPlus className='size-4 text-blue-500' />
-												<h3 className='text-xs font-semibold uppercase tracking-wider text-blue-500'>Discover New People</h3>
+												<UserPlus className='size-4 text-zinc-300' />
+												<h3 className='text-xs font-semibold uppercase tracking-wider text-zinc-300'>Discover New People</h3>
 												<span className='text-[10px] text-zinc-400 bg-zinc-900/60 border border-zinc-800 px-1.5 py-0.5 rounded-full'>
 													{notFollowingUsers.length}
 												</span>
@@ -525,7 +525,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 													<div className='flex gap-2'>
 														<button
 															onClick={() => handleAcceptRequest(user.id)}
-															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-zinc-700 text-white hover:bg-zinc-600 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
 															disabled={processingRequests.has(user.id)}
 														>
 															<UserCheck className='size-3' />
@@ -533,7 +533,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 														</button>
 														<button
 															onClick={() => handleDeclineRequest(user.id)}
-															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
+															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 bg-zinc-800 text-white hover:bg-zinc-700 hover:scale-105 ${processingRequests.has(user.id) ? 'cursor-not-allowed opacity-70' : ''}`}
 															disabled={processingRequests.has(user.id)}
 														>
 															<UserX className='size-3' />
@@ -546,7 +546,7 @@ const FriendsActivity = ({ onCollapse }: { onCollapse?: () => void }) => {
 															className={`px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 ${
 																processingRequests.has(user.id)
 																	? 'bg-zinc-800 text-white cursor-not-allowed opacity-70'
-																	: 'bg-[#1db954] text-black hover:bg-[#1ed760] hover:scale-105'
+																	: 'bg-zinc-700 text-white hover:bg-zinc-600 hover:scale-105'
 															}`}
 															disabled={processingRequests.has(user.id)}
 														>

@@ -52,12 +52,18 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
               const data = await response.json();
 
               if (response.ok) {
-                // Store user data using custom auth context
-                login(data.data.user, data.data.tokens);
-
-                // Check if user is admin and redirect accordingly
+                // Check if user is admin and set admin status in user data
                 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'ashnajacob003@gmail.com';
-                const isAdmin = data.data.user?.isAdmin || userInfo.email === ADMIN_EMAIL;
+                const isAdmin = userInfo.email === ADMIN_EMAIL;
+                
+                // Update user data with admin status
+                const updatedUserData = {
+                  ...data.data.user,
+                  isAdmin: isAdmin
+                };
+                
+                // Store user data using custom auth context
+                login(updatedUserData, data.data.tokens);
 
                 if (isAdmin) {
                   console.log('Admin user detected in Google sign-in, redirecting to admin dashboard');
@@ -71,6 +77,14 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
                   onSuccess();
                 }
               } else {
+                // Handle specific error cases
+                if (data.code === 'ACCOUNT_DEACTIVATED') {
+                  const errorMessage = `Your account has been deactivated by an administrator. Please contact our support team for assistance.\n\nAdmin Contact:\nPhone: ${data.adminContact?.phone || '9061493022'}\nEmail: ${data.adminContact?.email || 'ashnajacob003@gmail.com'}`;
+                  if (onError) {
+                    onError(errorMessage);
+                  }
+                  return;
+                }
                 throw new Error(data.message || 'Google authentication failed');
               }
             } catch (error) {

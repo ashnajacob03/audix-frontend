@@ -95,16 +95,17 @@ const AudixTopbar = () => {
                 <Link
                   to="/premium"
                   className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "bg-gradient-to-r from-amber-500 to-yellow-300 text-black border-none hover:from-amber-600 hover:to-yellow-400"
+                    buttonVariants({ variant: "default", size: "sm" }),
+                    "bg-gradient-to-r from-emerald-700 to-gray-800 hover:from-emerald-600 hover:to-gray-700 text-white border border-emerald-600/40 hover:border-emerald-500/60 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 px-5 py-2.5 hover:scale-105 hover:-translate-y-0.5 active:scale-95 group relative overflow-hidden"
                   )}
                 >
-                  <Crown className="mr-1 h-4 w-4" />
-                  Upgrade
+                  <div className="absolute inset-0 -top-1 -left-1 w-[calc(100%+8px)] h-[calc(100%+8px)] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300"></div>
+                  <Crown className="mr-2 h-4 w-4 relative z-10" />
+                  <span className="relative z-10">Upgrade to Premium</span>
                 </Link>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Upgrade to Premium</p>
+                <p>Unlock premium features and enhanced experience</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

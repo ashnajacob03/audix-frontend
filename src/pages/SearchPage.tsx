@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import AudixTopbar from "@/components/AudixTopbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import SongCard from "@/components/SongCard";
-import { Search, Music, Mic, Radio, User, Loader2 } from "lucide-react";
+import { Search, Music, Mic, Radio, User, Loader2, X } from "lucide-react";
 import apiService from "@/services/api";
 
 interface SearchResult {
@@ -64,6 +64,14 @@ const SearchPage = () => {
     if (!query.trim()) return;
     
     const updated = [query, ...recentSearches.filter(q => q !== query)].slice(0, 10);
+    setRecentSearches(updated);
+    localStorage.setItem('recentSearches', JSON.stringify(updated));
+  };
+
+  // Remove individual search history item
+  const removeSearchHistory = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the search click
+    const updated = recentSearches.filter((_, i) => i !== index);
     setRecentSearches(updated);
     localStorage.setItem('recentSearches', JSON.stringify(updated));
   };
@@ -275,13 +283,24 @@ const SearchPage = () => {
                     {recentSearches.map((item, index) => (
                       <div
                         key={index}
-                        onClick={() => handleRecentSearchClick(item)}
-                        className="flex items-center gap-3 p-3 hover:bg-zinc-800/50 rounded-lg cursor-pointer transition-colors"
+                        className="group flex items-center gap-3 p-3 hover:bg-zinc-800/50 rounded-lg cursor-pointer transition-all duration-200"
                       >
-                        <div className="w-12 h-12 bg-zinc-700 rounded-full flex items-center justify-center">
-                          <Search className="h-5 w-5 text-zinc-400" />
+                        <div 
+                          onClick={() => handleRecentSearchClick(item)}
+                          className="flex items-center gap-3 flex-1"
+                        >
+                          <div className="w-12 h-12 bg-zinc-700 rounded-full flex items-center justify-center">
+                            <Search className="h-5 w-5 text-zinc-400" />
+                          </div>
+                          <span className="text-white">{item}</span>
                         </div>
-                        <span className="text-white">{item}</span>
+                        <button
+                          onClick={(e) => removeSearchHistory(index, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-zinc-700/50 transition-all duration-200 flex items-center justify-center"
+                          aria-label="Remove search history"
+                        >
+                          <X className="h-4 w-4 text-zinc-400 hover:text-white" />
+                        </button>
                       </div>
                     ))}
                   </div>

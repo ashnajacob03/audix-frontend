@@ -94,12 +94,21 @@ const SongCard = ({ song }: SongCardProps) => {
           <DropdownMenuTrigger className="text-zinc-300 hover:text-white">
             <MoreVertical className="w-5 h-5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setIsShareOpen(true)}>
+          <DropdownMenuContent
+            sideOffset={8}
+            className="min-w-[180px] bg-zinc-900/90 backdrop-blur-md border border-white/10 shadow-2xl rounded-lg p-1"
+          >
+            <DropdownMenuItem
+              className="text-zinc-200 hover:bg-zinc-800/60 focus:bg-zinc-800/60 cursor-pointer"
+              onClick={() => setIsShareOpen(true)}
+            >
               <Share2 className="w-4 h-4 mr-2" /> Share
             </DropdownMenuItem>
             {isAuthenticated && (
-              <DropdownMenuItem onClick={() => setIsBackgroundModalOpen(true)}>
+              <DropdownMenuItem
+                className="text-zinc-200 hover:bg-zinc-800/60 focus:bg-zinc-800/60 cursor-pointer"
+                onClick={() => setIsBackgroundModalOpen(true)}
+              >
                 <Music className="w-4 h-4 mr-2" /> Extract Background
               </DropdownMenuItem>
             )}

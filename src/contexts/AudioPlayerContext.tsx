@@ -29,6 +29,7 @@ interface AudioPlayerContextType {
   queue: Song[];
   currentIndex: number;
   queueSource: 'liked' | 'playlist' | 'search' | 'recommendations' | 'manual';
+  isShuffled: boolean;
   
   // Skip limit functionality
   skipCount: number;
@@ -92,6 +93,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const [queue, setQueue] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [queueSource, setQueueSource] = useState<'liked' | 'playlist' | 'search' | 'recommendations' | 'manual'>('manual');
+  const [isShuffled, setIsShuffled] = useState(false);
   
   // Skip limit functionality
   const [skipCount, setSkipCount] = useState(() => {
@@ -369,7 +371,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   // Next song function (defined before playSong to avoid circular dependency)
   const next = useCallback(async () => {
     // Check skip limit for free users
-    if (isAuthenticated && user && !user.isPremium) {
+    if (isAuthenticated && user && user.accountType !== 'premium') {
       if (skipCount >= skipLimit) {
         setShowSkipLimitModal(true);
         return;
@@ -600,6 +602,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     setQueue(songs);
     setCurrentIndex(startIndex);
     setQueueSource(source);
+    setIsShuffled(false); // Reset shuffle state when loading new queue
     
     const songToPlay = songs[startIndex];
     await playSong(songToPlay);
@@ -699,18 +702,42 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
   const clearQueue = useCallback(() => {
     setQueue([]);
     setCurrentIndex(0);
+    setIsShuffled(false); // Reset shuffle state when clearing queue
   }, []);
 
   const shuffle = useCallback(() => {
+    if (isShuffled) {
+      // If already shuffled, turn off shuffle (this would require original order)
+      // For now, we'll just toggle the state since we don't store original order
+      setIsShuffled(false);
+      return;
+    }
+    
     setQueue(prev => {
+      if (prev.length <= 1) return prev;
+      
+      const currentSongId = currentSong?._id;
       const shuffled = [...prev];
+      
+      // Fisher-Yates shuffle algorithm
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
+      
+      // If we have a current song, make sure it stays in the same position
+      if (currentSongId && currentIndex < shuffled.length) {
+        const currentSongIndex = shuffled.findIndex(song => song._id === currentSongId);
+        if (currentSongIndex !== -1 && currentSongIndex !== currentIndex) {
+          // Swap the current song to its original position
+          [shuffled[currentIndex], shuffled[currentSongIndex]] = [shuffled[currentSongIndex], shuffled[currentIndex]];
+        }
+      }
+      
       return shuffled;
     });
-  }, []);
+    setIsShuffled(true);
+  }, [currentSong, currentIndex, isShuffled]);
 
   // Allow UI to immediately stop ad and hide overlay (e.g., Upgrade click)
   const dismissAd = useCallback(() => {
@@ -746,6 +773,7 @@ export const AudioPlayerProvider: React.FC<AudioPlayerProviderProps> = ({ childr
     queue,
     currentIndex,
     queueSource,
+    isShuffled,
     skipCount,
     skipLimit,
     showSkipLimitModal,

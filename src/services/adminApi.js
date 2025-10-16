@@ -4,7 +4,7 @@ const adminApi = {
   // Dashboard statistics
   getDashboardStats: async () => {
     try {
-      const response = await api.get('/admin/dashboard');
+      const response = await api.get('/admin/dashboard', { suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -15,7 +15,7 @@ const adminApi = {
   // User management
   getUsers: async (params = {}) => {
     try {
-      const response = await api.get('/admin/users', { params });
+      const response = await api.get('/admin/users', { params, suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -26,7 +26,7 @@ const adminApi = {
   // Create user
   createUser: async (userData) => {
     try {
-      const response = await api.post('/admin/users', userData);
+      const response = await api.post('/admin/users', userData, { suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error creating user:', error);
@@ -37,7 +37,7 @@ const adminApi = {
   // Update user
   updateUser: async (userId, updates) => {
     try {
-      const response = await api.put(`/admin/users/${userId}`, updates);
+      const response = await api.put(`/admin/users/${userId}`, updates, { suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error updating user:', error);
@@ -48,7 +48,7 @@ const adminApi = {
   // Delete user
   deleteUser: async (userId) => {
     try {
-      const response = await api.delete(`/admin/users/${userId}`);
+      const response = await api.delete(`/admin/users/${userId}`, { suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -56,10 +56,32 @@ const adminApi = {
     }
   },
 
+  // Activate user
+  activateUser: async (userId) => {
+    try {
+      const response = await api.post(`/admin/users/${userId}/activate`, {}, { suppressAuthRedirect: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error activating user:', error);
+      throw error;
+    }
+  },
+
+  // Deactivate user
+  deactivateUser: async (userId) => {
+    try {
+      const response = await api.post(`/admin/users/${userId}/deactivate`, {}, { suppressAuthRedirect: true });
+      return response.data;
+    } catch (error) {
+      console.error('Error deactivating user:', error);
+      throw error;
+    }
+  },
+
   // Bulk delete users
   bulkDeleteUsers: async (userIds) => {
     try {
-      const response = await api.delete('/admin/users/bulk', { data: { userIds } });
+      const response = await api.delete('/admin/users/bulk', { data: { userIds }, suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error bulk deleting users:', error);
@@ -70,7 +92,7 @@ const adminApi = {
   // Bulk update users
   bulkUpdateUsers: async (userIds, updates) => {
     try {
-      const response = await api.put('/admin/users/bulk', { userIds, updates });
+      const response = await api.put('/admin/users/bulk', { userIds, updates }, { suppressAuthRedirect: true });
       return response.data;
     } catch (error) {
       console.error('Error bulk updating users:', error);

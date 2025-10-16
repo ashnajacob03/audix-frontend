@@ -410,10 +410,11 @@ const Premium = () => {
               {accountType !== 'premium' ? (
                 <button 
                   onClick={() => handleUpgrade(selectedPlan)}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-[#1db954] to-[#1ed760] text-white rounded-lg font-medium hover:from-[#1ed760] hover:to-[#1db954] transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                  className="w-full py-5 px-8 bg-gradient-to-r from-emerald-700 to-gray-800 hover:from-emerald-600 hover:to-gray-700 text-white rounded-xl font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-4 border border-emerald-600/40 hover:border-emerald-500/60 hover:shadow-emerald-500/20 group relative overflow-hidden"
                 >
-                  <CreditCard className="w-5 h-5" />
-                  Upgrade to Premium
+                  <div className="absolute inset-0 -top-1 -left-1 w-[calc(100%+8px)] h-[calc(100%+8px)] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-300"></div>
+                  <CreditCard className="w-5 h-5 relative z-10" />
+                  <span className="relative z-10">Upgrade to Premium</span>
                 </button>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
