@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useCustomAuth } from '../contexts/AuthContext';
+// import { useCustomAuth } from '../contexts/AuthContext'; // unused
 
 const VerifyOTP = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useCustomAuth();
+  // const { login } = useCustomAuth(); // unused
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');

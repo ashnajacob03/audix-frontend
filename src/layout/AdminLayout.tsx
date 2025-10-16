@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react'; // unused
 import { Outlet } from 'react-router-dom';
 
 const AdminLayout = () => {

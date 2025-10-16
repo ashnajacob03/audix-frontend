@@ -23,7 +23,7 @@ const ArtistVerifications = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const resp = await adminApi.getArtistVerifications();
+      const resp = await (adminApi as any).getArtistVerifications();
       setItems(resp.items || []);
     } catch (e) {
       console.error(e);
@@ -51,7 +51,7 @@ const ArtistVerifications = () => {
   };
 
   const approve = (id: string) => confirmAnd('Approve this artist?', async () => {
-    await adminApi.approveArtistVerification(id);
+    await (adminApi as any).approveArtistVerification(id);
     await Swal.fire({ title: 'Approved', icon: 'success', confirmButtonColor: '#10b981', background: '#0a0a0a', color: '#e5e5e5' });
   });
 
@@ -67,7 +67,7 @@ const ArtistVerifications = () => {
       color: '#e5e5e5'
     });
     if (notes !== undefined) {
-      await adminApi.rejectArtistVerification(id, notes as string);
+      await (adminApi as any).rejectArtistVerification(id, notes as string);
       await Swal.fire({ title: 'Rejected', icon: 'success', background: '#0a0a0a', color: '#e5e5e5' });
       await load();
     }

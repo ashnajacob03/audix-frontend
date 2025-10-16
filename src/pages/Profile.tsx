@@ -4,14 +4,14 @@ import AudixTopbar from '@/components/AudixTopbar';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { User, Music, Heart, BarChart3, Clock, PlayCircle, MessageCircle } from 'lucide-react';
+import { Music, Heart, Clock, PlayCircle } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // unused
 
 const Profile = () => {
   const { user } = useCustomAuth();
   const { userProfile, isLoading } = useUserProfile();
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // unused
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [isActivityLoading, setIsActivityLoading] = useState<boolean>(false);

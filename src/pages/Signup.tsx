@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { validationConfig as defaultValidationConfig, validateName, validateEmail, validatePassword, validateRegistrationForm } from '../utils/validation';
-import { getPasswordStrength } from '../utils/validation';
+// import { getPasswordStrength } from '../utils/validation'; // unused
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({

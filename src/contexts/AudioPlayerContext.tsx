@@ -9,7 +9,7 @@ interface Song {
   _id: string;
   title: string;
   artist: string;
-  imageUrl: string;
+  imageUrl?: string;
   duration?: number;
   previewUrl?: string;
   spotifyId?: string;

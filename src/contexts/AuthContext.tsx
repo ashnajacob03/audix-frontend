@@ -7,9 +7,12 @@ interface User {
   name: string;
   email: string;
   picture?: string;
+  profilePicture?: string;
+  fullName?: string;
   isEmailVerified: boolean;
   accountType: string;
   isAdmin?: boolean;
+  createdAt?: string;
 }
 
 interface AuthContextType {

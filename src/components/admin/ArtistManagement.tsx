@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import adminApi from '@/services/adminApi';
 import { BarChart3 } from 'lucide-react';
 import FallbackImage from '@/components/FallbackImage';
-import api from '@/services/api';
 
 type Artist = {
   id: string;
@@ -25,7 +24,7 @@ const ArtistManagement = () => {
     try {
       setLoading(true);
       // List artists that actually have songs (public endpoint)
-      const res = await adminApi.getArtists({ page, limit: 12, search });
+      const res = await (adminApi as any).getArtists({ page, limit: 12, search });
       const list = res?.data?.artists || res?.artists || [];
       const pagination = res?.data?.pagination || res?.pagination;
       setArtists(list.map((a: any) => ({ id: a.id || a._id || a.name, name: a.name, imageUrl: a.imageUrl, followerCount: a.followerCount })));
@@ -41,7 +40,7 @@ const ArtistManagement = () => {
     if (!form) return;
     try {
       setBusyId(form.id);
-      await adminApi.updateArtist(form.id, { name: form.name, imageUrl: form.imageUrl || null });
+      await (adminApi as any).updateArtist(form.id, { name: form.name, imageUrl: form.imageUrl || null });
       setForm(null);
       await load();
     } finally {
@@ -52,7 +51,7 @@ const ArtistManagement = () => {
   const remove = async (id: string) => {
     try {
       setBusyId(id);
-      await adminApi.deleteArtist(id);
+      await (adminApi as any).deleteArtist(id);
       await load();
     } finally {
       setBusyId(null);

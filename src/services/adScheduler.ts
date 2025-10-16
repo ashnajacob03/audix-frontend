@@ -313,13 +313,13 @@ class AdScheduler {
   /**
    * Save ad campaigns to storage
    */
-  private saveAdCampaigns(): void {
-    try {
-      localStorage.setItem('audix_ad_campaigns', JSON.stringify(this.adCampaigns));
-    } catch (error) {
-      console.warn('Failed to save ad campaigns to storage:', error);
-    }
-  }
+  // private saveAdCampaigns(): void { // unused
+  //   try {
+  //     localStorage.setItem('audix_ad_campaigns', JSON.stringify(this.adCampaigns));
+  //   } catch (error) {
+  //     console.warn('Failed to save ad campaigns to storage:', error);
+  //   }
+  // }
 
   /**
    * Notify ad listeners

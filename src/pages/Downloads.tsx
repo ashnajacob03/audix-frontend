@@ -4,7 +4,7 @@ import { listOfflineSongs, getOfflineSong, deleteOfflineSong } from '@/utils/off
 import type { OfflineSongMeta } from '@/utils/offline';
 import { Button } from '@/components/ui/button';
 import FallbackImage from '@/components/FallbackImage';
-import { Download, Trash2, Play, Pause } from 'lucide-react';
+import { Download, Trash2, Play } from 'lucide-react';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 
 export default function Downloads() {
@@ -15,7 +15,7 @@ export default function Downloads() {
   const [error, setError] = useState<string | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const { playSong, isPlaying } = useAudioPlayer();
+  const { playSong } = useAudioPlayer();
 
   const canAccess = isAuthenticated && isPremium;
 

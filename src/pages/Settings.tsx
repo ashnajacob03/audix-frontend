@@ -116,8 +116,8 @@ const Settings = () => {
   // Inline loading for notification toggles
   const [updatingNotifications, setUpdatingNotifications] = useState<{ email: boolean; push: boolean }>({ email: false, push: false });
   // Inline loading for appearance
-  const [updatingTheme, setUpdatingTheme] = useState(false);
-  const [updatingLanguage, setUpdatingLanguage] = useState(false);
+  // const [updatingTheme, setUpdatingTheme] = useState(false); // unused
+  // const [updatingLanguage, setUpdatingLanguage] = useState(false); // unused
 
   // Fetch complete user profile data
   const fetchUserProfile = async () => {
@@ -213,18 +213,18 @@ const Settings = () => {
     }));
   };
 
-  const handleNestedInputChange = (parent: string, field: string, value: any) => {
-    setFormData(prev => {
-      const parentValue = (prev as any)[parent] || {};
-      return {
-        ...prev,
-        [parent]: {
-          ...parentValue,
-          [field]: value
-        }
-      } as any;
-    });
-  };
+  // const handleNestedInputChange = (parent: string, field: string, value: any) => { // unused
+  //   setFormData(prev => {
+  //     const parentValue = (prev as any)[parent] || {};
+  //     return {
+  //       ...prev,
+  //       [parent]: {
+  //         ...parentValue,
+  //         [field]: value
+  //       }
+  //     } as any;
+  //   });
+  // };
 
   const handleToggleNotification = async (field: 'email' | 'push', value: boolean) => {
     const previous = formData.notifications;
@@ -272,47 +272,47 @@ const Settings = () => {
     }
   };
 
-  const handleThemeChange = async (value: 'light' | 'dark' | 'auto') => {
-    const previous = formData.theme;
-    setFormData(prev => ({ ...prev, theme: value }));
-    try {
-      setUpdatingTheme(true);
-      const resp = await apiService.updatePreferences({
-        theme: value,
-        language: formData.language,
-        notifications: formData.notifications,
-        privacy: formData.privacy
-      });
-      if (!resp?.success) throw new Error(resp?.message || 'Failed to update theme');
-      showSuccessToast('Theme updated', `${value.charAt(0).toUpperCase() + value.slice(1)} theme applied.`);
-    } catch (e: any) {
-      setFormData(prev => ({ ...prev, theme: previous }));
-      showErrorToast('Update failed', e?.message || 'Failed to update theme.');
-    } finally {
-      setUpdatingTheme(false);
-    }
-  };
+  // const handleThemeChange = async (value: 'light' | 'dark' | 'auto') => { // unused
+  //   const previous = formData.theme;
+  //   setFormData(prev => ({ ...prev, theme: value }));
+  //   try {
+  //     setUpdatingTheme(true);
+  //     const resp = await apiService.updatePreferences({
+  //       theme: value,
+  //       language: formData.language,
+  //       notifications: formData.notifications,
+  //       privacy: formData.privacy
+  //     });
+  //     if (!resp?.success) throw new Error(resp?.message || 'Failed to update theme');
+  //     showSuccessToast('Theme updated', `${value.charAt(0).toUpperCase() + value.slice(1)} theme applied.`);
+  //   } catch (e: any) {
+  //     setFormData(prev => ({ ...prev, theme: previous }));
+  //     showErrorToast('Update failed', e?.message || 'Failed to update theme.');
+  //   } finally {
+  //     setUpdatingTheme(false);
+  //   }
+  // };
 
-  const handleLanguageChange = async (value: string) => {
-    const previous = formData.language;
-    setFormData(prev => ({ ...prev, language: value }));
-    try {
-      setUpdatingLanguage(true);
-      const resp = await apiService.updatePreferences({
-        theme: formData.theme,
-        language: value,
-        notifications: formData.notifications,
-        privacy: formData.privacy
-      });
-      if (!resp?.success) throw new Error(resp?.message || 'Failed to update language');
-      showSuccessToast('Language updated', `${value.toUpperCase()} applied.`);
-    } catch (e: any) {
-      setFormData(prev => ({ ...prev, language: previous }));
-      showErrorToast('Update failed', e?.message || 'Failed to update language.');
-    } finally {
-      setUpdatingLanguage(false);
-    }
-  };
+  // const handleLanguageChange = async (value: string) => { // unused
+  //   const previous = formData.language;
+  //   setFormData(prev => ({ ...prev, language: value }));
+  //   try {
+  //     setUpdatingLanguage(true);
+  //     const resp = await apiService.updatePreferences({
+  //       theme: formData.theme,
+  //       language: value,
+  //       notifications: formData.notifications,
+  //       privacy: formData.privacy
+  //     });
+  //     if (!resp?.success) throw new Error(resp?.message || 'Failed to update language');
+  //     showSuccessToast('Language updated', `${value.toUpperCase()} applied.`);
+  //   } catch (e: any) {
+  //     setFormData(prev => ({ ...prev, language: previous }));
+  //     showErrorToast('Update failed', e?.message || 'Failed to update language.');
+  //   } finally {
+  //     setUpdatingLanguage(false);
+  //   }
+  // };
 
   const validateNewPassword = (pwd: string): string | null => {
     if (!pwd || pwd.length < 8) return 'Must be at least 8 characters';

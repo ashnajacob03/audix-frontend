@@ -3,7 +3,7 @@ import apiService from '@/services/api';
 import { useCustomAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import FallbackImage from '@/components/FallbackImage';
-import { Search, Check } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 type ArtistItem = {
   name: string;

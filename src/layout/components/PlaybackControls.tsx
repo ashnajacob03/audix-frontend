@@ -175,7 +175,7 @@ export const PlaybackControls = () => {
             <>
               <div className="relative group">
                 <FallbackImage
-                  src={currentSong.imageUrl}
+                  src={currentSong.imageUrl || ''}
                   alt={currentSong.title}
                   className="w-14 h-14 rounded-md"
                   fallbackSeed={currentSong._id}

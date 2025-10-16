@@ -11,7 +11,7 @@ interface BackgroundExtractionModalProps {
     _id: string;
     title: string;
     artist: string;
-    imageUrl: string;
+    imageUrl?: string;
   };
 }
 

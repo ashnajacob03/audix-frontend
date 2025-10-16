@@ -103,7 +103,7 @@ const Home = () => {
 			try {
 				const q1 = recentSearches[0];
 				const q2 = recentSearches[1];
-				const [featRes, madeRes, popularRes] = await Promise.all([
+    const [featRes, , popularRes] = await Promise.all([
 					q1 ? apiService.searchMusic(q1, 'song', 10, 'local') : apiService.getPopularSongs(10),
 					q2 ? apiService.searchMusic(q2, 'song', 10, 'local') : apiService.getPopularSongs(10),
 					apiService.getPopularSongs(50)
@@ -111,7 +111,7 @@ const Home = () => {
 
 				const featFull = (featRes?.songs || featRes || []) as SongItem[];
 				const featSongs = featFull.slice(0, 5);
-				const madeSongs = (madeRes?.songs || madeRes || []).slice(0, 10);
+    // const madeSongs = (madeRes?.songs || madeRes || []).slice(0, 10); // unused
 
 				// Trending based on most frequently searched queries
 				const freqMap: Record<string, number> = {};

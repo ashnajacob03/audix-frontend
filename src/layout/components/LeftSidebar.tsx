@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCustomAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft, Download, ChevronDown, ChevronUp, Music2, Wallet2, Megaphone, MessageSquare } from "lucide-react";
+import { HomeIcon, Library, MessageCircle, Heart, BarChart2, Search, Users, Settings, ChevronLeft, Download, ChevronDown, ChevronUp, Music2 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { Link } from "react-router-dom";
 import FallbackImage from "@/components/FallbackImage";

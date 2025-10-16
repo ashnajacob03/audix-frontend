@@ -4,7 +4,7 @@ import api from '@/services/api';
 import FallbackImage from '@/components/FallbackImage';
 import { Button } from '@/components/ui/button';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import { Check, Play, Shuffle } from 'lucide-react';
+import { Play, Shuffle } from 'lucide-react';
 
 const ArtistProfile: React.FC = () => {
   const { name = '' } = useParams();

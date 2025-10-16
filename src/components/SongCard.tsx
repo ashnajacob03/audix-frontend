@@ -54,7 +54,7 @@ const SongCard = ({ song }: SongCardProps) => {
       {/* Song Image */}
       <div className="relative mb-4">
         <FallbackImage
-          src={song.imageUrl}
+          src={song.imageUrl || ''}
           alt={song.title}
           className="w-full aspect-square rounded-md shadow-lg"
           fallbackSeed={song._id}
