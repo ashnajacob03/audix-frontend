@@ -107,7 +107,7 @@ const LikedSongs = () => {
 									<div key={song._id} className="flex items-center gap-4 p-2 rounded-md hover:bg-zinc-800/50">
 										<div className="w-12 h-12">
 											<FallbackImage
-												src={song.imageUrl}
+												src={song.imageUrl || ''}
 												alt={song.title}
 												className="w-12 h-12 rounded"
 												fallbackSeed={song._id}

@@ -1,49 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AudixTopbar from "@/components/AudixTopbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import SongCard from "@/components/SongCard";
 import apiService from "@/services/api";
 
 import { 
-	Heart, 
-	Music, 
-	Zap, 
-	Coffee, 
-	HeartCrack, 
-	Sparkles, 
-	PartyPopper, 
-	Smile, 
-	Headphones,
 	Loader2
 } from "lucide-react";
 
-// Mood icon mapping
-const MOOD_ICONS: Record<string, React.ComponentType<any>> = {
-	happy: Smile,
-	sad: HeartCrack,
-	energetic: Zap,
-	focus: Coffee,
-	heartbreak: HeartCrack,
-	relax: Headphones,
-	love: Heart,
-	feel_good: Sparkles,
-	party: PartyPopper,
-	chill: Music
-};
-
-// Mood color mapping
-const MOOD_COLORS: Record<string, string> = {
-	happy: "from-yellow-500 to-amber-600",
-	sad: "from-blue-500 to-indigo-600",
-	energetic: "from-red-500 to-orange-600",
-	focus: "from-slate-500 to-slate-700",
-	heartbreak: "from-pink-500 to-purple-600",
-	relax: "from-teal-500 to-green-600",
-	love: "from-pink-500 to-rose-600",
-	feel_good: "from-green-500 to-emerald-600",
-	party: "from-purple-500 to-violet-600",
-	chill: "from-blue-500 to-cyan-600"
-};
+// Mood mappings removed as they were unused
 
 // Map moods to genre keywords for API fetching
 const MOOD_GENRE_MAP: Record<string, string> = {
@@ -85,15 +50,15 @@ const normalizeSongForCard = (song: any) => ({
 });
 
 const Home = () => {
-	const [activeTab, setActiveTab] = useState("all");
+	// const [activeTab, setActiveTab] = useState("all"); // unused
 	const [featuredSongs, setFeaturedSongs] = useState<SongItem[]>([]);
 	const [featuredPool, setFeaturedPool] = useState<SongItem[]>([]);
-	const [madeForYouSongs, setMadeForYouSongs] = useState<SongItem[]>([]);
+	// const [madeForYouSongs, setMadeForYouSongs] = useState<SongItem[]>([]); // unused
 	const [trendingSongs, setTrendingSongs] = useState<SongItem[]>([]);
 	const [trendingPool, setTrendingPool] = useState<SongItem[]>([]);
 	const [randomSongs, setRandomSongs] = useState<SongItem[]>([]);
 	const [popularPool, setPopularPool] = useState<SongItem[]>([]);
-	const [moodSongs, setMoodSongs] = useState<Record<string, SongItem[]>>({});
+	// const [moodSongs, setMoodSongs] = useState<Record<string, SongItem[]>>({}); // unused
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 	const [showAllFeatured, setShowAllFeatured] = useState(false);
@@ -176,7 +141,7 @@ const Home = () => {
 				if (!isMounted) return;
 				setFeaturedPool(featFull);
 				setFeaturedSongs(featSongs as SongItem[]);
-				setMadeForYouSongs(madeSongs as SongItem[]);
+				// setMadeForYouSongs(madeSongs as SongItem[]); // unused
 				setTrendingPool(trendFull);
 				setTrendingSongs(trendSongs as SongItem[]);
 				setPopularPool(pool);
@@ -222,7 +187,7 @@ const Home = () => {
 					}
 				}
 				if (!isMounted) return;
-				setMoodSongs(map);
+				// setMoodSongs(map); // unused
 			} catch (error) {
 				console.error('Error fetching mood songs:', error);
 			}
@@ -231,11 +196,11 @@ const Home = () => {
 		return () => { isMounted = false; };
 	}, []);
 
-	// Function to get user-friendly mood name
-	const getMoodLabel = (mood: string) => {
-		const foundMood = availableMoods.find(m => m.value === mood);
-		return foundMood ? foundMood.label : mood.charAt(0).toUpperCase() + mood.slice(1).replace('_', ' ');
-	};
+	// Function to get user-friendly mood name - unused
+	// const getMoodLabel = (mood: string) => {
+	//	const foundMood = availableMoods.find(m => m.value === mood);
+	//	return foundMood ? foundMood.label : mood.charAt(0).toUpperCase() + mood.slice(1).replace('_', ' ');
+	// };
 
 	// NOTE: MoodCard is kept for future sections; not used in this simplified layout
 

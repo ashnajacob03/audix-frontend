@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSocket } from '@/contexts/SocketContext';
+// import { useSocket } from '@/contexts/SocketContext'; // unused
 import { ScrollArea } from '@/components/ui/scroll-area';
 import UserAvatar from '@/components/UserAvatar';
 import { X, Share2, Search, Check, Link as LinkIcon, MessageCircle, Facebook, Twitter, Send } from 'lucide-react';
@@ -31,7 +31,6 @@ interface ShareSongModalProps {
 }
 
 const ShareSongModal = ({ isOpen, onClose, song }: ShareSongModalProps) => {
-  const { sendMessage } = useSocket();
   const navigate = useNavigate();
   const [friends, setFriends] = useState<FriendItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,7 +249,7 @@ const ShareSongModal = ({ isOpen, onClose, song }: ShareSongModalProps) => {
                           </span>
                           {/* Avatar */}
                           <div className={`rounded-full ${isChecked ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-zinc-900' : ''}`}>
-                            <UserAvatar src={f.avatar} alt={f.name} size={'md'} />
+                            <UserAvatar src={f.avatar} size={'md'} />
                           </div>
                           {/* Texts */}
                           <div className="min-w-0 flex-1">

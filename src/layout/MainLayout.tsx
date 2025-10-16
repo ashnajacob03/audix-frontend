@@ -101,7 +101,7 @@ const MainLayout = () => {
 					<PlaybackControls />
 				</div>
 			)}
-			{isAdPlaying && <AdOverlay seconds={currentAd?.duration || 10} ad={currentAd} />}
+			{isAdPlaying && <AdOverlay seconds={currentAd?.duration || 10} ad={currentAd || undefined} />}
 		</div>
 	);
 };

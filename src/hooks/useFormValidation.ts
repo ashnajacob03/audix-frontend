@@ -15,7 +15,7 @@ export interface ValidationRules {
 export interface FieldState {
   isValid: boolean;
   message: string;
-  severity: 'error' | 'warning' | 'success';
+  severity: 'error' | 'warning' | 'info' | 'success';
   touched: boolean;
   isValidating: boolean;
 }
@@ -67,7 +67,7 @@ export const useFormValidation = (
             ...prev[fieldName],
             isValid: result.isValid,
             message: result.message,
-            severity: result.severity,
+            severity: result.severity || 'error',
             isValidating: false
           }
         }));
@@ -108,7 +108,7 @@ export const useFormValidation = (
       newValidationState[fieldName] = {
         isValid: result.isValid,
         message: result.message,
-        severity: result.severity,
+        severity: result.severity || 'error',
         touched: true,
         isValidating: false
       };

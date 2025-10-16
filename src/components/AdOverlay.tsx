@@ -15,7 +15,7 @@ const AdOverlay: React.FC<AdOverlayProps> = ({ seconds = 10, videoSrc, ad }) => 
   const navigate = useNavigate();
   const [remaining, setRemaining] = useState<number>(seconds);
   const { dismissAd, currentAd } = useAudioPlayer();
-  const { isAuthenticated, user } = useCustomAuth();
+  const { isAuthenticated } = useCustomAuth();
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   

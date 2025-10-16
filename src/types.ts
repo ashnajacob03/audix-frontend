@@ -13,6 +13,7 @@ export interface NavItem {
 
 export interface User {
   _id: string;
+  id?: string; // Alternative ID field
   email: string;
   firstName: string;
   lastName: string;
@@ -62,18 +63,33 @@ export interface AnalyticsData {
     messages: number;
     messagesGrowthRate?: number;
   };
+  content?: {
+    conversations: number;
+    messages: number;
+    messagesGrowthRate?: number;
+  };
   revenue?: {
     total: number;
     monthly: number;
+    growthRate?: number;
   };
   streams?: {
     total: number;
     monthly: number;
+    growthRate?: number;
   };
   engagement?: {
     likes: number;
     shares: number;
+    avgSessionTime?: string;
+    sessionGrowthRate?: number;
   };
+  dailyStats?: Array<{
+    date: string;
+    users: number;
+    streams: number;
+    revenue: number;
+  }>;
 }
 
 export interface SearchResult {

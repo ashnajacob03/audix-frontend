@@ -223,7 +223,7 @@ const EnhancedValidationInput: React.FC<EnhancedValidationInputProps> = ({
             ${showSuccess ? 'animate-pulse' : ''}
           `}
           aria-describedby={validationResult && hasBeenTouched ? `${id}-validation` : undefined}
-          aria-invalid={validationResult && !validationResult.isValid && hasBeenTouched}
+          aria-invalid={validationResult && !validationResult.isValid && hasBeenTouched ? true : false}
         />
 
         {/* Right side icons */}

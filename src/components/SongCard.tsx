@@ -11,7 +11,7 @@ interface Song {
   _id: string;
   title: string;
   artist: string;
-  imageUrl: string;
+  imageUrl?: string;
   duration?: number;
   previewUrl?: string;
   spotifyId?: string;
@@ -22,7 +22,6 @@ interface SongCardProps {
 }
 
 const SongCard = ({ song }: SongCardProps) => {
-  const [isHovered, setIsHovered] = useState(false);
   const { playSong, currentSong, isPlaying, pause, resume } = useAudioPlayer();
   const { isAuthenticated } = useCustomAuth();
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -51,8 +50,6 @@ const SongCard = ({ song }: SongCardProps) => {
   return (
     <div
       className="group relative bg-zinc-800/40 hover:bg-zinc-800/60 rounded-lg p-4 transition-all duration-300"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Song Image */}
       <div className="relative mb-4">

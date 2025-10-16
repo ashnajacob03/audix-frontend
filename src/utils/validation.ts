@@ -7,7 +7,7 @@ export interface ValidationResult {
   isValid: boolean;
   message: string;
   field?: string;
-  severity?: 'error' | 'warning' | 'info';
+  severity?: 'error' | 'warning' | 'info' | 'success';
 }
 
 // Interface for form validation results
@@ -331,7 +331,7 @@ export const debounce = <T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: number | null = null;
   
   return (...args: Parameters<T>) => {
     if (timeout) {

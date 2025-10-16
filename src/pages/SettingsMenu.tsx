@@ -70,12 +70,12 @@ const SettingsMenu: React.FC = () => {
     ...(userProfile?.isArtist
       ? [
           { key: 'artist-settings', label: 'Artist settings', to: '/settings?tab=artist', icon: <Settings className="w-4 h-4" /> },
-          { key: 'switch-listener', label: 'Switch to Listener', variant: 'danger', icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToListener },
+          { key: 'switch-listener', label: 'Switch to Listener', variant: 'danger' as const, icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToListener },
         ]
       : [
-          { key: 'switch-account', label: 'Switch to Artist', variant: 'highlight', icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToArtist },
+          { key: 'switch-account', label: 'Switch to Artist', variant: 'highlight' as const, icon: <Repeat2 className="w-4 h-4" />, onClick: handleSwitchToArtist },
         ]),
-    { key: 'logout', label: 'Logout', variant: 'danger', icon: <LogOut className="w-4 h-4" />, onClick: () => logout() },
+    { key: 'logout', label: 'Logout', variant: 'danger' as const, icon: <LogOut className="w-4 h-4" />, onClick: () => logout() },
   ];
 
   return (

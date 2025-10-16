@@ -1,5 +1,4 @@
 import React from 'react';
-import { User } from 'lucide-react';
 import { processGoogleProfileImage } from '../utils/imageUtils';
 
 interface UserAvatarProps {
@@ -31,7 +30,6 @@ const sizeMap = {
 const UserAvatar: React.FC<UserAvatarProps> = ({ size = 'md', showOnlineStatus = false, src, className = '', firstName, lastName }) => {
   const [imageError, setImageError] = React.useState(false);
   const [imageLoading, setImageLoading] = React.useState(true);
-  const [currentSrc, setCurrentSrc] = React.useState<string | undefined>(src);
   
   // Process the image URL (especially for Google profile images)
   const processedSrc = React.useMemo(() => {
@@ -42,10 +40,9 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ size = 'md', showOnlineStatus =
   React.useEffect(() => {
     setImageError(false);
     setImageLoading(true);
-    setCurrentSrc(processedSrc);
   }, [processedSrc]);
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  const handleImageError = () => {
     if (!imageError) {
       setImageError(true);
       setImageLoading(false);

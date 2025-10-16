@@ -9,7 +9,6 @@ import {
   Users, 
   Search,
   UserPlus,
-  UserCheck,
   Clock
 } from 'lucide-react';
 
@@ -33,7 +32,7 @@ interface UserProfileModalProps {
   userId?: string;
 }
 
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose, userId }) => {
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onClose }) => {
   const { user } = useCustomAuth();
   const navigate = useNavigate();
   const [friends, setFriends] = useState<Friend[]>([]);

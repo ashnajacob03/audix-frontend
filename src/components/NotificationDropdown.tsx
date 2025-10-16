@@ -31,6 +31,10 @@ interface Notification {
   isRead: boolean;
   actionTaken: string;
   createdAt: string;
+  data?: {
+    songId?: string;
+    [key: string]: any;
+  };
 }
 
 interface NotificationDropdownProps {
@@ -397,7 +401,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ authToken }
                           {notification.type === 'new_song' && notification.data?.songId && (
                             <div className="mt-2">
                               <button
-                                onClick={() => handlePlaySongFromNotification(notification.data?.songId)}
+                                onClick={() => handlePlaySongFromNotification(notification.data?.songId || '')}
                                 className="text-xs text-purple-400 hover:text-purple-300 transition-colors underline"
                               >
                                 Listen to song

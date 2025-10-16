@@ -25,7 +25,7 @@ const ArtistManagement = () => {
     try {
       setLoading(true);
       // List artists that actually have songs (public endpoint)
-      const res = await api.get('/music/artists', { params: { page, limit: 12, search } });
+      const res = await adminApi.getArtists({ page, limit: 12, search });
       const list = res?.data?.artists || res?.artists || [];
       const pagination = res?.data?.pagination || res?.pagination;
       setArtists(list.map((a: any) => ({ id: a.id || a._id || a.name, name: a.name, imageUrl: a.imageUrl, followerCount: a.followerCount })));

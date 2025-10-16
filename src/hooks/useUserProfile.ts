@@ -42,7 +42,7 @@ export const useUserProfile = (): UseUserProfileReturn => {
       profilePicture: customUser.picture,
       isEmailVerified: customUser.isEmailVerified || false,
       accountType: customUser.accountType || 'free',
-      isArtist: customUser.isArtist || false,
+      isArtist: (customUser as any).isArtist || false,
       isAdmin: customUser.isAdmin || false,
       createdAt: new Date().toISOString(),
     };

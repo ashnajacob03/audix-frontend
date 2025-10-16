@@ -15,7 +15,7 @@ export default function Downloads() {
   const [error, setError] = useState<string | null>(null);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const { playSong } = useAudioPlayer();
+  const { playSong, isPlaying } = useAudioPlayer();
 
   const canAccess = isAuthenticated && isPremium;
 
@@ -73,7 +73,7 @@ export default function Downloads() {
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(null);
       setCurrentId(null);
-      setIsPlaying(false);
+      // isPlaying is managed by the audio player context
     }
   };
 
@@ -110,7 +110,7 @@ export default function Downloads() {
           {formatted.map(item => (
             <div key={item.id} className="bg-zinc-900 border border-white/5 rounded-lg p-3 flex items-center gap-3">
               <div className="w-14 h-14 rounded-md overflow-hidden flex-shrink-0">
-                <FallbackImage src={item.coverUrl} alt={item.title} className="w-14 h-14" fallbackSeed={item.id} />
+                <FallbackImage src={item.coverUrl || ''} alt={item.title} className="w-14 h-14" fallbackSeed={item.id} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-white font-medium truncate">{item.title}</div>

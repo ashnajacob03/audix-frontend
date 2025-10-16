@@ -27,10 +27,37 @@ interface AnalyticsData {
     new: number;
     active: number;
     premium: number;
+    newGrowthRate?: number;
+    activeGrowthRate?: number;
+    premiumGrowthRate?: number;
+    total?: number;
+    totalGrowthRate?: number;
+  };
+  conversations: {
+    conversations: number;
+    messages: number;
+    messagesGrowthRate?: number;
   };
   content: {
     conversations: number;
     messages: number;
+    messagesGrowthRate?: number;
+  };
+  revenue?: {
+    total: number;
+    monthly: number;
+    growthRate?: number;
+  };
+  streams?: {
+    total: number;
+    monthly: number;
+    growthRate?: number;
+  };
+  engagement?: {
+    likes: number;
+    shares: number;
+    avgSessionTime?: string;
+    sessionGrowthRate?: number;
   };
   dailyStats: Array<{
     date: string;
@@ -302,7 +329,7 @@ const Analytics = () => {
           </div>
           
           <div className="space-y-4">
-            {analytics?.dailyStats.slice(-7).map((day, index) => (
+            {analytics?.dailyStats.slice(-7).map((day) => (
               <div key={day.date} className="flex items-center gap-4">
                 <div className="w-16 text-zinc-400 text-sm">
                   {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
