@@ -16,8 +16,43 @@ export interface FormValidationResult {
   errors: { [key: string]: string };
 }
 
+// Interface for email validation config
+export interface EmailValidationConfig {
+  blockDisposable: boolean;
+  disposableDomains: string[];
+  knownTypos?: string[];
+  commonTlds?: string[];
+}
+
+// Interface for name validation config
+export interface NameValidationConfig {
+  minLength: number;
+  maxLength: number;
+  allowedPattern: RegExp;
+  noNumbers: boolean;
+  noConsecutiveSpecial: boolean;
+}
+
+// Interface for password validation config
+export interface PasswordValidationConfig {
+  minLength: number;
+  maxLength: number;
+  requireLower: boolean;
+  requireUpper: boolean;
+  requireNumber: boolean;
+  requireSpecial: boolean;
+  blockCommon: boolean;
+}
+
+// Interface for complete validation config
+export interface ValidationConfig {
+  name: NameValidationConfig;
+  email: EmailValidationConfig;
+  password: PasswordValidationConfig;
+}
+
 // Dynamic validation config
-export const validationConfig = {
+export const validationConfig: ValidationConfig = {
   name: {
     minLength: 3,
     maxLength: 30,
@@ -29,6 +64,12 @@ export const validationConfig = {
     blockDisposable: true,
     disposableDomains: [
       'mailinator.com', '10minutemail.com', 'guerrillamail.com', 'tempmail.com', 'yopmail.com', 'trashmail.com'
+    ],
+    knownTypos: [
+      'gma.com', 'gnail.com', 'gamil.com', 'gmal.com', 'gmial.com', 'yaho.com', 'yhoo.com', 'hotmial.com', 'hotmal.com', 'outlok.com', 'outllok.com', 'icloud.co', 'icloud.om', 'gmai.com', 'gmail.con', 'gmail.co', 'gmail.cmo', 'yahho.com', 'yahool.com', 'yahooo.com', 'yaho.co', 'hotmail.co', 'hotmail.con', 'outlook.co', 'outlook.con', 'protonmail.co', 'protonmail.con', 'zoho.co', 'zoho.con'
+    ],
+    commonTlds: [
+      'com', 'in', 'net', 'org', 'edu', 'gov', 'co', 'io', 'me', 'us', 'uk', 'ca', 'au', 'info', 'biz', 'dev', 'app', 'xyz', 'pro', 'tech', 'ai', 'id', 'sg', 'za', 'fr', 'de', 'es', 'it', 'nl', 'ru', 'jp', 'kr', 'br', 'mx', 'ar', 'ch', 'se', 'no', 'fi', 'pl', 'tr', 'ir', 'pk', 'bd', 'lk', 'np', 'my', 'ph', 'vn', 'th', 'hk', 'tw', 'cn', 'sa', 'ae', 'qa', 'il', 'cz', 'sk', 'gr', 'pt', 'ro', 'hu', 'dk', 'be', 'at', 'ie', 'nz'
     ],
   },
   password: {
@@ -45,7 +86,7 @@ export const validationConfig = {
 /**
  * Validate email format and domain existence
  */
-export const validateEmail = async (email: string, config = validationConfig.email) => {
+export const validateEmail = async (email: string, config: EmailValidationConfig = validationConfig.email) => {
   const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail) {
     return { isValid: false, message: 'Email is required', field: 'email' };
@@ -80,10 +121,10 @@ export const validateEmail = async (email: string, config = validationConfig.ema
     }
   }
   // Enhanced: Only allow common TLDs and block typo domains
-  const commonTlds = [
+  const commonTlds = config.commonTlds || [
     'com', 'in', 'net', 'org', 'edu', 'gov', 'co', 'io', 'me', 'us', 'uk', 'ca', 'au', 'info', 'biz', 'dev', 'app', 'xyz', 'pro', 'tech', 'ai', 'id', 'sg', 'za', 'fr', 'de', 'es', 'it', 'nl', 'ru', 'jp', 'kr', 'br', 'mx', 'ar', 'ch', 'se', 'no', 'fi', 'pl', 'tr', 'ir', 'pk', 'bd', 'lk', 'np', 'my', 'ph', 'vn', 'th', 'hk', 'tw', 'cn', 'sa', 'ae', 'qa', 'il', 'cz', 'sk', 'gr', 'pt', 'ro', 'hu', 'dk', 'be', 'at', 'ie', 'nz'
   ];
-  const knownTypos = [
+  const knownTypos = config.knownTypos || [
     'gma.com', 'gnail.com', 'gamil.com', 'gmal.com', 'gmial.com', 'yaho.com', 'yhoo.com', 'hotmial.com', 'hotmal.com', 'outlok.com', 'outllok.com', 'icloud.co', 'icloud.om', 'gmai.com', 'gmail.con', 'gmail.co', 'gmail.cmo', 'yahho.com', 'yahool.com', 'yahooo.com', 'yaho.co', 'hotmail.co', 'hotmail.con', 'outlook.co', 'outlook.con', 'protonmail.co', 'protonmail.con', 'zoho.co', 'zoho.con'
   ];
   const [_, domainPart] = trimmedEmail.split('@');
@@ -165,7 +206,7 @@ export const validateEmailDomain = async (domain: string): Promise<boolean> => {
 /**
  * Validate password strength
  */
-export const validatePassword = (password: string, formData?: { firstName?: string; lastName?: string; email?: string }, config = validationConfig.password): ValidationResult => {
+export const validatePassword = (password: string, formData?: { firstName?: string; lastName?: string; email?: string }, config: PasswordValidationConfig = validationConfig.password): ValidationResult => {
   if (password.length < config.minLength) {
     return { isValid: false, message: `Password must be at least ${config.minLength} characters long`, field: 'password' };
   }
@@ -214,7 +255,7 @@ export const validatePassword = (password: string, formData?: { firstName?: stri
 /**
  * Validate name fields
  */
-export const validateName = (name: string, fieldName: string, config = validationConfig.name) => {
+export const validateName = (name: string, fieldName: string, config: NameValidationConfig = validationConfig.name) => {
   const trimmedName = name.trim();
   if (!trimmedName) {
     return { isValid: false, message: `${fieldName} is required`, field: fieldName.toLowerCase() };
@@ -275,7 +316,7 @@ export const validateRegistrationForm = async (
     password: string;
     confirmPassword: string;
   },
-  config = validationConfig
+  config: ValidationConfig = validationConfig
 ): Promise<{ isValid: boolean; errors: { [key: string]: string } }> => {
   const errors: { [key: string]: string } = {};
   // Name
