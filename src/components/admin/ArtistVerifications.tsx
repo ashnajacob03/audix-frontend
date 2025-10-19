@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import adminApi from '@/services/adminApi';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Swal from 'sweetalert2';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Eye } from 'lucide-react';
+import ProofViewer from './ProofViewer';
 
 type VerificationItem = {
   _id: string;
@@ -19,6 +20,7 @@ type VerificationItem = {
 const ArtistVerifications = () => {
   const [items, setItems] = useState<VerificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewingProofs, setViewingProofs] = useState<VerificationItem | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -121,11 +123,22 @@ const ArtistVerifications = () => {
                       {it.socialLink && (<div>Social: {it.socialLink}</div>)}
                       {it.portfolioLink && (<div>Portfolio: {it.portfolioLink}</div>)}
                     </div>
-                    <div className="flex gap-2 mt-2">
-                      {it.idFileUrl && (<a className="text-sky-400 text-sm" href={it.idFileUrl} target="_blank">ID File</a>)}
-                      {it.evidenceUrls?.map((url, idx) => (
-                        <a key={idx} className="text-sky-400 text-sm" href={url} target="_blank">Evidence {idx + 1}</a>
-                      ))}
+                    <div className="flex gap-2 mt-2 items-center">
+                      <button
+                        onClick={() => setViewingProofs(it)}
+                        className="flex items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm text-zinc-300 hover:text-white transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        View Proofs
+                      </button>
+                      {(it.idFileUrl || it.evidenceUrls?.length) && (
+                        <div className="text-zinc-500 text-xs">
+                          {it.idFileUrl && it.evidenceUrls?.length ? 
+                            `${1 + (it.evidenceUrls?.length || 0)} files` : 
+                            '1 file'
+                          }
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -137,6 +150,15 @@ const ArtistVerifications = () => {
             ))}
           </div>
         </ScrollArea>
+      )}
+      
+      {/* Proof Viewer Modal */}
+      {viewingProofs && (
+        <ProofViewer
+          isOpen={!!viewingProofs}
+          onClose={() => setViewingProofs(null)}
+          verificationItem={viewingProofs}
+        />
       )}
     </div>
   );
