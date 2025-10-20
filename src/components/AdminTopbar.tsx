@@ -30,7 +30,7 @@ const AdminTopbar = () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
-        await fetch('http://localhost:3002/api/auth/logout', {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,

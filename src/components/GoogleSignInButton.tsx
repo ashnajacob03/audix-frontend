@@ -34,7 +34,7 @@ const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
           async (userInfo, credential) => {
             try {
               // Send the Google credential to your backend
-              const response = await fetch('http://localhost:3002/api/auth/google', {
+              const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/google`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

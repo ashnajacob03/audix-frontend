@@ -22,7 +22,7 @@ export const testAuthFlow = async () => {
   // Test 2: Test API call with current token
   try {
     console.log('Testing API call with current token...');
-    const response = await fetch('http://localhost:3002/api/auth/test-auth', {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/test-auth`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export const testAuthFlow = async () => {
       if (refreshToken) {
         try {
           console.log('Attempting token refresh...');
-          const refreshResponse = await fetch('http://localhost:3002/api/auth/refresh-token', {
+          const refreshResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/refresh-token`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -69,7 +69,7 @@ export const testAuthFlow = async () => {
             
             // Test the new token
             console.log('Testing API call with new token...');
-            const newResponse = await fetch('http://localhost:3002/api/auth/test-auth', {
+            const newResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/test-auth`, {
               headers: {
                 'Authorization': `Bearer ${refreshData.data.tokens.accessToken}`,
                 'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ export const testMusicAPIs = async () => {
   for (const endpoint of endpoints) {
     try {
       console.log(`Testing ${endpoint}...`);
-      const response = await fetch(`http://localhost:3002/api${endpoint}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}${endpoint}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',

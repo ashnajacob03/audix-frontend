@@ -29,7 +29,7 @@ const Signup = () => {
   useEffect(() => {
     const fetchValidationConfig = async () => {
       try {
-        const res = await fetch('http://localhost:3002/api/config/validation');
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/config/validation`);
         const data = await res.json();
         if (data.success && data.data) {
           setDynamicValidationConfig(data.data);
@@ -93,7 +93,7 @@ const Signup = () => {
           if (emailCheckTimeout.current) clearTimeout(emailCheckTimeout.current);
           emailCheckTimeout.current = setTimeout(async () => {
             try {
-              const res = await fetch(`http://localhost:3002/api/auth/check-email?email=${encodeURIComponent(value)}`);
+              const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/check-email?email=${encodeURIComponent(value)}`);
               if (res.ok) {
                 const data = await res.json();
                 if (data.exists) {
@@ -197,7 +197,7 @@ const Signup = () => {
     }
     try {
       // First, create user in your MongoDB database
-      const response = await fetch('http://localhost:3002/api/auth/signup', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

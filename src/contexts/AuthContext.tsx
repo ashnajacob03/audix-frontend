@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Verify token is still valid by making a test request
           try {
-            const response = await fetch('http://localhost:3002/api/user/profile', {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/user/profile`, {
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Token expired, try to refresh
               if (refreshToken) {
                 try {
-                  const refreshResponse = await fetch('http://localhost:3002/api/auth/refresh-token', {
+                  const refreshResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/refresh-token`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -167,7 +167,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Call backend logout endpoint
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
-        await fetch('http://localhost:3002/api/auth/logout', {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
