@@ -66,7 +66,7 @@ const VerifyOTP = () => {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/verify-otp`, {
+      const response = await fetch('http://localhost:3002/api/auth/verify-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ const VerifyOTP = () => {
     setError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api'}/auth/resend-otp`, {
+      const response = await fetch('http://localhost:3002/api/auth/resend-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

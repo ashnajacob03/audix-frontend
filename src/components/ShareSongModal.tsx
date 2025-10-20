@@ -6,7 +6,7 @@ import { X, Share2, Search, Check, Link as LinkIcon, MessageCircle, Facebook, Tw
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 interface FriendItem {
   id: string;

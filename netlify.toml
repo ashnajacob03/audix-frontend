@@ -9,17 +9,3 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  # Replace with your actual Railway backend URL
-  # Example: VITE_API_BASE_URL = "https://audix-backend-production.up.railway.app/api"
-  # Example: VITE_SOCKET_URL = "https://audix-backend-production.up.railway.app"
-  VITE_API_BASE_URL = "https://your-backend-app.railway.app/api"
-  VITE_SOCKET_URL = "https://your-backend-app.railway.app"
-
-# Headers for security and CORS
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"

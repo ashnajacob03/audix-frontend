@@ -37,7 +37,7 @@ const Premium = () => {
       if (API_BASE_URL.startsWith('//')) {
         API_BASE_URL = `${window.location.protocol}${API_BASE_URL}`;
       } else if (API_BASE_URL.startsWith(':')) {
-        API_BASE_URL = `${window.location.protocol}//${window.location.hostname}${API_BASE_URL}`; // e.g. :3002/api -> http://localhost:3002/api (development only)
+        API_BASE_URL = `http://localhost${API_BASE_URL}`; // e.g. :3002/api -> http://localhost:3002/api
       } else if (API_BASE_URL.startsWith('/')) {
         API_BASE_URL = `${window.location.origin}${API_BASE_URL}`;
       } else {
@@ -73,7 +73,7 @@ const Premium = () => {
           if (API_BASE_URL.startsWith('//')) {
             API_BASE_URL = `${window.location.protocol}${API_BASE_URL}`;
           } else if (API_BASE_URL.startsWith(':')) {
-            API_BASE_URL = `${window.location.protocol}//${window.location.hostname}${API_BASE_URL}`;
+            API_BASE_URL = `http://localhost${API_BASE_URL}`;
           } else if (API_BASE_URL.startsWith('/')) {
             API_BASE_URL = `${window.location.origin}${API_BASE_URL}`;
           } else {

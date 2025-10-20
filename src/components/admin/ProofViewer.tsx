@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Download, Eye, FileImage, FileText, File } from 'lucide-react';
 import Swal from 'sweetalert2';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
 
 // Helper function to convert relative URLs to full URLs
 const getFullFileUrl = (url: string): string => {
